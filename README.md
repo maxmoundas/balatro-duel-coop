@@ -2,12 +2,13 @@
 
 A Balatro mod (Steamodded). Any player can host from inside the game, and Steam friends join
 through Steam itself: no server, port forwarding, tunnel or website. Each player runs their own
-copy of Balatro, so everything plays exactly like the real game.
+copy of Balatro, so everything plays exactly like the real game. Works on **Windows and Mac**,
+and Windows and Mac players can play together.
 
 ## Quick start
 
 ### What you need
-- **Balatro on Steam, on a Windows PC.** Every player needs their own copy, because Steam Family
+- **Balatro on Steam, on a Windows PC or a Mac.** Every player needs their own copy, because Steam Family
   Sharing doesn't let two accounts play the same copy at once.
 - **To be Steam friends with whoever is hosting.** Add each other under Steam → Friends → Add a
   Friend.
@@ -15,7 +16,7 @@ copy of Balatro, so everything plays exactly like the real game.
   Steam's friend status.
 - **Balatro launched at least once**, all the way to the main menu, so its save folder exists.
 
-### Install
+### Install on Windows
 1. **Download the installer:**
    **[BalatroMultiplayer-Setup.zip](https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/BalatroMultiplayer-Setup.zip)**
    (this link always gives you the latest version).
@@ -36,18 +37,49 @@ copy of Balatro, so everything plays exactly like the real game.
    A **MULTIPLAYER** button appears on the main menu. If it doesn't, press **F8** on the main
    menu.
 
+### Install on Mac
+1. **Quit Balatro** if it's open.
+2. **Open Terminal** (Applications → Utilities → Terminal, or press ⌘ Space and type
+   *Terminal*).
+3. **Paste this line and press Enter:**
+   ```sh
+   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/install-mac.sh | bash
+   ```
+   - It installs the same three things: **Lovely**, **Steamodded** and this mod. Anything
+     already installed is skipped.
+   - If it can't find Balatro, it asks for the game folder. Go to Steam → right-click Balatro →
+     Manage → Browse local files, drag the folder that opens into the Terminal window, and
+     press Enter.
+   - Prefer not to paste commands? Download and unzip the
+     [zip](https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/BalatroMultiplayer-Setup.zip)
+     instead, type `bash ` (with a space) in Terminal, drag `install-mac.sh` from the unzipped
+     folder into the window, and press Enter.
+4. **Launch Balatro from Steam** as usual. The **MULTIPLAYER** button appears on the main menu.
+
+How it works on Mac: Lovely can't hook into the game the way it does on Windows, so the
+installer puts a tiny launcher in place of the game's program (`Balatro.app/Contents/MacOS/love`;
+the original is kept next to it as `love-original`). The launcher starts the original with
+Lovely loaded, so launching from Steam and accepting Steam invites both start the modded game.
+**If a Balatro update makes the MULTIPLAYER button disappear, run the install line again.**
+
 ### Updating
 When a new version comes out, **every player must update**, because mismatched versions may not
-work together. Download the zip again from the same link, extract it, and run `Install.bat`
-again. It replaces the old version of the mod and leaves Lovely and Steamodded as they are.
+work together. On Windows, download the zip again from the same link, extract it, and run
+`Install.bat` again. On Mac, run the install line again. Either way it replaces the old version
+of the mod and leaves Lovely and Steamodded as they are.
 
 ### Uninstalling
 1. Close Balatro.
-2. Double-click **`Uninstall.bat`** in the folder you extracted. If you deleted that folder,
-   download and extract the zip again.
+2. **Windows:** double-click **`Uninstall.bat`** in the folder you extracted. If you deleted that
+   folder, download and extract the zip again.
+   **Mac:** run this in Terminal:
+   ```sh
+   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/uninstall-mac.sh | bash
+   ```
 3. It removes this mod and its settings, then asks whether to also remove **Lovely and
    Steamodded**. Answer **N** (the default) if you use any other mods, because they need them.
-   Answer **Y** to make Balatro completely unmodded again.
+   Answer **Y** to make Balatro completely unmodded again (on Mac this also puts the game's
+   original program back).
 
 Your Balatro save files are never touched.
 
@@ -75,8 +107,13 @@ MULTIPLAYER → **Advanced**. Leave the field empty to go back to your Steam nam
   show as Online, and that the host's lobby is still open. Then try again.
 - **The MULTIPLAYER button is missing:** run `Install.bat` again. If Balatro shows a Lovely or
   Steamodded error when it starts, take a screenshot and send it to the host.
-- **Something else:** send the newest log file from `%APPDATA%\Balatro\Mods\lovely\log\`. Paste
-  that path into the File Explorer address bar to open the folder.
+- **Mac: Balatro starts without the MULTIPLAYER button:** a Balatro update probably replaced the
+  launcher. Run the install line again.
+- **Something else:** send the newest log file from Lovely's log folder:
+  - Windows: `%APPDATA%\Balatro\Mods\lovely\log\`. Paste that path into the File Explorer
+    address bar to open the folder.
+  - Mac: `~/Library/Application Support/Balatro/Mods/lovely/log/`. In Finder, press ⇧⌘G and
+    paste that path.
 - **Other mods:** turn off mods that change scoring, like Talisman. They aren't supported yet.
 
 ## Modes
@@ -122,7 +159,8 @@ board. Players whose run has ended never hold anyone up.
 
 ## Manual install (instead of the installer)
 
-Use this only if `Install.bat` doesn't work for you. Otherwise, follow [Quick start](#quick-start).
+Use this only if the installer doesn't work for you. These steps are for Windows; on Mac, read
+`installer/install-mac.sh`, which does the equivalent with Lovely's macOS build. Otherwise, follow [Quick start](#quick-start).
 
 1. Install **Lovely**: download `lovely-x86_64-pc-windows-msvc.zip` from
    https://github.com/ethangreen-dev/lovely-injector/releases and put `winmm.dll` (older releases: `version.dll`) in the Balatro
@@ -143,7 +181,8 @@ The mod then:
 1. Starts a game server inside Balatro, on a background thread. It only listens on
    `127.0.0.1:8788`, so there's no firewall prompt.
 2. Lets Steam friends connect to it through **Steam's peer-to-peer networking**
-   (`ISteamNetworking`, part of the `steam_api64.dll` Balatro already ships). Steam connects the
+   (`ISteamNetworking`, part of the Steam library Balatro already ships: `steam_api64.dll` on
+   Windows, `libsteam_api.dylib` on Mac). Steam connects the
    two PCs directly when it can and relays through Valve's servers when it can't, so it works
    behind any router, including mobile hotspots and shared (CGNAT) connections.
 
@@ -166,8 +205,8 @@ name or use a dedicated server instead (see below), which anyone can join.
 - **Invite code:** the host clicks **Copy invite code** (`CODE@steam:<id>`) and sends it to you,
   e.g. on Discord. You click **Paste** and then **Join**. This also needs you to be Steam friends.
 
-The mod reads your Steam friends list through Steam's own API (`steam_api64.dll`, already part
-of Balatro). Your Steam ID is sent only to the server of a lobby you're in, so invites can be
+The mod reads your Steam friends list through Steam's own API (`steam_api64.dll` /
+`libsteam_api.dylib`, already part of Balatro). Your Steam ID is sent only to the server of a lobby you're in, so invites can be
 delivered. While you're connecting to a friend's game, your rich presence briefly carries their
 Steam ID (`mp_joining`) so their game knows to accept your connection.
 
@@ -178,20 +217,26 @@ You don't need this section to play. It explains where the download in
 
 **Automatic:** on every push to `main` that changes `mod/`, `installer/` or the build script,
 the GitHub Action `.github/workflows/installer.yml` builds the zip on a Windows machine. It then
-uploads it to the **`latest`** release, replacing the old file, and moves the `latest` tag to that
-commit. The download link stays the same, so players always get the newest build. You can also
+uploads it, together with the Mac scripts (`install-mac.sh`, `uninstall-mac.sh`,
+`common-mac.sh`), to the **`latest`** release, replacing the old files, and moves the `latest` tag
+to that commit. The download link stays the same, so players always get the newest build. You can also
 run it by hand from the repo's **Actions** tab → **Build installer** → **Run workflow**. For
 players to download the zip without signing in, the repo must be public.
 
 **Locally:**
 
 ```powershell
-.\tools\build-friend-package.ps1
+.\tools\build-friend-package.ps1      # Windows
+```
+```sh
+./tools/build-friend-package.sh       # Mac
 ```
 
-Either way, you get `dist\BalatroMultiplayer-Setup.zip`. `Install.bat` finds Balatro through
-Steam's library list and installs Lovely v0.10.0 and Steamodded 26.1002.0 (the tested versions),
-skipping either one if it's already installed. Then it installs the mod.
+Either way, you get `dist\BalatroMultiplayer-Setup.zip`, one package for both platforms.
+`Install.bat` (Windows) and `install-mac.sh` (Mac) find Balatro through Steam's library list and
+install Lovely v0.10.0 and Steamodded 26.1002.0 (the tested versions), skipping either one if it's
+already installed. Then they install the mod. To install your working copy on a Mac, run
+`./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/install-mac.sh`.
 
 ## Dedicated server (optional)
 
@@ -219,7 +264,8 @@ server under **Advanced**, or you can build it into the friend package with
 | In-game server (LÖVE thread + luasocket) | `mod/BalatroMultiplayer/src/host_server.lua`, `host.lua` |
 | Steam P2P transport (host bridge + joining) | `mod/BalatroMultiplayer/src/p2p.lua` |
 | Client connection (TCP thread or Steam P2P) | `mod/BalatroMultiplayer/src/net.lua` |
-| Steam friends, invites, rich presence (FFI) | `mod/BalatroMultiplayer/src/steam.lua` |
+| Steam friends, invites, rich presence (FFI, Windows + Mac) | `mod/BalatroMultiplayer/src/steam.lua` |
+| Installers (Windows `.bat`/`.ps1`, Mac `*-mac.sh`) | `installer/` |
 | Game hooks, run state, message handling | `mod/BalatroMultiplayer/src/game.lua` |
 | Menus + HUD / player viewer | `mod/BalatroMultiplayer/src/ui.lua`, `viewer.lua` |
 | Standalone server (runs relay.lua via fengari) | `server/src/server.js`, `relay-host.js` |

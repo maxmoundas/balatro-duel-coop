@@ -1,6 +1,8 @@
 # Builds the friend installer (dist\BalatroMultiplayer-Setup.zip) on every push to main and
-# publishes it to a rolling "latest" GitHub Release, so this link always has the newest build:
+# publishes it to a rolling "latest" GitHub Release, so these links always have the newest build:
 #   https://github.com/<owner>/<repo>/releases/latest/download/BalatroMultiplayer-Setup.zip
+#   https://github.com/<owner>/<repo>/releases/latest/download/install-mac.sh   (Mac one-liner)
+# The Mac scripts are uploaded on their own too, so Mac players can `curl ... | bash` them.
 name: Build installer
 
 on:
@@ -10,6 +12,7 @@ on:
       - 'mod/**'
       - 'installer/**'
       - 'tools/build-friend-package.ps1'
+      - '.gitattributes'
       - '.github/workflows/installer.yml'
   workflow_dispatch:
 
@@ -39,17 +42,22 @@ jobs:
           short=$(git rev-parse --short HEAD)
           notes="Built from commit ${short} on $(date -u +'%Y-%m-%d %H:%M UTC').
 
-          **To install:** download BalatroMultiplayer-Setup.zip below, unzip it, close Balatro, and double-click Install.bat.
-          You need Balatro on Steam (Windows), launched at least once."
+          **Windows:** download BalatroMultiplayer-Setup.zip below, unzip it, close Balatro, and double-click Install.bat.
+          **Mac:** quit Balatro, open Terminal and run:
+          \`curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/install-mac.sh | bash\`
+
+          You need Balatro on Steam, launched at least once. Windows and Mac players can play together."
+
+          assets=(dist/BalatroMultiplayer-Setup.zip installer/install-mac.sh installer/uninstall-mac.sh installer/common-mac.sh)
 
           # Move the tag to this commit.
           git tag -f latest
           git push -f origin refs/tags/latest
 
           if gh release view latest >/dev/null 2>&1; then
-            gh release upload latest dist/BalatroMultiplayer-Setup.zip --clobber
+            gh release upload latest "${assets[@]}" --clobber
             gh release edit latest --title "Latest build (${short})" --notes "$notes" --latest
           else
-            gh release create latest dist/BalatroMultiplayer-Setup.zip \
+            gh release create latest "${assets[@]}" \
               --title "Latest build (${short})" --notes "$notes" --latest
           fi

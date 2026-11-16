@@ -1,6 +1,6 @@
 # Testing with a second PC and Steam account
 
-This tests the real thing: two copies of Balatro on two Windows PCs, signed in to two Steam
+This tests the real thing: two copies of Balatro on two computers (Windows or Mac, in any mix), signed in to two Steam
 accounts, connected through Steam. Below, **PC A** is your main PC (account A) and **PC B** is the
 second laptop (account B).
 
@@ -33,6 +33,16 @@ second laptop (account B).
 5. Launch Balatro from Steam on PC B. Check that **MULTIPLAYER** is on the main menu, under PLAY.
    Your multiplayer name defaults to your Steam name. Change it under MULTIPLAYER → **Advanced**
    if both accounts have similar names.
+
+**If PC B is a Mac:** instead of steps 3–4, quit Balatro and run the Mac installer in Terminal.
+To test your working copy rather than the published build, build the package on the Mac and run
+it from there:
+```sh
+./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/install-mac.sh
+```
+Then launch Balatro from Steam as usual. A Windows + Mac pair is worth testing in both directions
+(Mac hosts, then Windows hosts), including step 4 below (invite while the game is closed), since
+on Mac that depends on the launcher the installer puts in `Balatro.app`.
 
 **Keep both PCs on the same version.** After any change to the mod, rebuild the zip and run
 `Install.bat` on PC B again. On PC A, run `.\install-mod.ps1`.

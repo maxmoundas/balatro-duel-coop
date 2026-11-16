@@ -12,6 +12,30 @@ local ffi_ok, ffi = pcall(require, 'ffi')
 local FRIEND_FLAG_IMMEDIATE = 0x04
 local PERSONA_STATES = { [0] = 'Offline', 'Online', 'Busy', 'Away', 'Snooze', 'Online', 'Online' }
 
+-- The Steam API library Balatro ships: steam_api64.dll next to Balatro.exe on Windows,
+-- libsteam_api.dylib inside Balatro.app/Contents/Resources on macOS. By the time
+-- G.STEAM exists, Balatro's luasteam module has already loaded it into the process.
+function Steam.load_lib()
+  if jit and jit.os == 'Windows' then return ffi.load('steam_api64') end
+  -- macOS/Linux: symbols of already-loaded libraries are visible through ffi.C.
+  if pcall(function() return ffi.C.SteamAPI_SteamFriends_v017 end) then return ffi.C end
+  local names = {}
+  local ok_dir, dir = pcall(function() return love.filesystem.getSourceBaseDirectory() end)
+  if ok_dir and dir then
+    names[#names + 1] = dir .. '/libsteam_api.dylib'
+    names[#names + 1] = dir .. '/Balatro.app/Contents/Resources/libsteam_api.dylib'
+    names[#names + 1] = dir .. '/libsteam_api.so'
+  end
+  names[#names + 1] = 'steam_api'
+  local last
+  for _, name in ipairs(names) do
+    local ok, lib = pcall(ffi.load, name)
+    if ok and pcall(function() return lib.SteamAPI_SteamFriends_v017 end) then return lib end
+    last = lib
+  end
+  error('Steam API library not found (' .. tostring(last) .. ')')
+end
+
 function Steam.init()
   if Steam.ok or Steam.tried then return Steam.ok end
   if not G.STEAM then return false end -- Steam not initialised yet: try again later
@@ -21,7 +45,9 @@ function Steam.init()
     ffi.cdef [[
       typedef struct { uint64_t m_gameID; uint32_t m_unGameIP; uint16_t m_usGamePort; uint16_t m_usQueryPort; uint64_t m_steamIDLobby; } MP_FriendGameInfo_t;
       void* SteamAPI_SteamFriends_v017();
+      void* SteamAPI_SteamUser_v021();
       void* SteamAPI_SteamUser_v022();
+      void* SteamAPI_SteamUser_v023();
       void* SteamAPI_SteamApps_v008();
       void* SteamAPI_SteamUtils_v010();
       int SteamAPI_ISteamFriends_GetFriendCount(void* self, int iFriendFlags);
@@ -40,12 +66,20 @@ function Steam.init()
       int SteamAPI_ISteamApps_GetLaunchCommandLine(void* self, char* pszCommandLine, int cubCommandLine);
       uint32_t SteamAPI_ISteamUtils_GetAppID(void* self);
     ]]
-    local lib = ffi.load('steam_api64')
+    local lib = Steam.load_lib()
     local friends = lib.SteamAPI_SteamFriends_v017()
     if friends == nil then error('ISteamFriends unavailable') end
     Steam.lib, Steam.friends_if = lib, friends
     Steam.app_mask = ffi.new('uint64_t', 16777216) -- CGameID: low 24 bits are the app id
-    Steam.user_if = lib.SteamAPI_SteamUser_v022()
+    -- The interface version differs between the SDKs Balatro ships per platform
+    -- (v022 on Windows, v023 on macOS); the ISteamUser calls we use are the same.
+    for _, sym in ipairs({ 'SteamAPI_SteamUser_v023', 'SteamAPI_SteamUser_v022', 'SteamAPI_SteamUser_v021' }) do
+      local found, fn = pcall(function() return lib[sym] end)
+      if found then
+        Steam.user_if = fn()
+        if Steam.user_if ~= nil then break end
+      end
+    end
     Steam.apps_if = lib.SteamAPI_SteamApps_v008()
     local utils = lib.SteamAPI_SteamUtils_v010()
     Steam.app_id = utils ~= nil and tonumber(lib.SteamAPI_ISteamUtils_GetAppID(utils)) or 2379780
