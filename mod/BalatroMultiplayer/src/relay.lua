@@ -6,6 +6,11 @@
 --                 player still in the run has finished blind S.
 --   * blind gate (blind_ready slot S): selecting or skipping blind S waits until every
 --                 other player still in the run is also ready for blind S (or past it).
+--                 A player who skips blind S then waits at blind gate S+1 until everyone
+--                 who played blind S has finished it and left the shop.
+--
+-- Co-op skips: players who skip blind S sit it out. The ones who select it play it, and
+-- its requirement scales by how many of them there are (sent as gate_go.playing).
 --
 -- Single source of truth for the multiplayer rules. Transport-agnostic, and runs in two places:
 --   * inside the game when a player hosts (LÖVE thread + luasocket, LuaJIT / Lua 5.1)
@@ -20,7 +25,7 @@
 
 local Relay = {}
 Relay.__index = Relay
-Relay.PROTOCOL_VERSION = 2
+Relay.PROTOCOL_VERSION = 3
 
 local MAX_PLAYERS = { duel = 2, coop = 4 }
 local SEED_CHARS = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789'
@@ -132,6 +137,7 @@ function Lobby:start(player)
       results = {},       -- slot -> { won, hands, best, skipped }
       wait = nil,         -- { kind = 'shop' | 'blind', slot } while held at a round gate
       out_of_hands = {},  -- slot -> true
+      skipping = {},      -- slot -> true when the player chose to skip that blind
       points = 0,
       last_hand = nil,
     }
@@ -168,7 +174,10 @@ function Lobby:handle(player, msg)
       if opp then opp:send({ type = 'opp_blind_start', slot = slot }) end
       self:check_duel_outcome()
     end
-  elseif t == 'blind_ready' then player.game.wait = { kind = 'blind', slot = slot }
+  elseif t == 'blind_ready' then
+    local skip = msg.action == 'skip'
+    player.game.wait = { kind = 'blind', slot = slot, action = skip and 'skip' or 'select' }
+    player.game.skipping[slot] = skip or nil
   elseif t == 'shop_ready' then player.game.wait = { kind = 'shop', slot = slot }
   elseif t == 'hand_scored' then self:on_hand_scored(player, slot, int(msg.hand, 0), math.max(0, int(msg.score, 0)))
   elseif t == 'blind_end' then
@@ -230,9 +239,11 @@ function Lobby:update_gates()
       end
       if #blockers == 0 then
         p.game.wait = nil
-        p:send({ type = 'gate_go', kind = w.kind, slot = w.slot })
+        local go = { type = 'gate_go', kind = w.kind, slot = w.slot }
+        if w.kind == 'blind' and self.mode == 'coop' then go.playing = #self:coop_players(w.slot) end
+        p:send(go)
       else
-        status[#status + 1] = { id = p.id, kind = w.kind, slot = w.slot, waitingFor = blockers }
+        status[#status + 1] = { id = p.id, kind = w.kind, slot = w.slot, action = w.action, waitingFor = blockers }
       end
     end
   end
@@ -270,9 +281,9 @@ function Lobby:on_blind_end(player, slot, result)
     self:score_duel_slots()
     self:check_duel_outcome()
   else
+    if result.skipped then g.skipping[slot] = true end
     local s = self:coop_slot(slot)
-    if result.won then s.won = true
-    elseif not result.skipped then self:check_coop_failure(slot) end
+    if result.won then s.won = true else self:check_coop_failure(slot) end
   end
 end
 
@@ -372,12 +383,17 @@ function Lobby:on_out_of_hands(player, slot)
   self:check_coop_failure(slot)
 end
 
+-- Players still in the run who are playing blind `slot` (didn't skip it).
+function Lobby:coop_players(slot)
+  return list_filter(self:alive_players(), function(p) return not p.game.skipping[slot] end)
+end
+
 function Lobby:check_coop_failure(slot)
   local s = self:coop_slot(slot)
   if s.won or s.failed then return end
-  local alive = self:alive_players()
-  if #alive == 0 then return end
-  for _, p in ipairs(alive) do
+  local playing = self:coop_players(slot)
+  if #playing == 0 then return end
+  for _, p in ipairs(playing) do
     if not p.game.out_of_hands[slot] then return end
   end
   s.failed = true

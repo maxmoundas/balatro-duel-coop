@@ -43,7 +43,7 @@ const duel = { slot: 0, hand: 0, hands: 0, best: 0 };
 
 const sock = net.connect({ host, port }, () => {
   log(`connected to ${host}:${port}`);
-  send({ type: 'hello', name: NAME, protocol: 2 });
+  send({ type: 'hello', name: NAME, protocol: 3 });
 });
 sock.setNoDelay(true);
 sock.setEncoding('utf8');
@@ -79,7 +79,11 @@ function catchUp(w) {
   const key = w.kind + ':' + w.slot;
   if (gateDone.has(key)) return;
   gateDone.add(key);
-  if (w.kind === 'blind') {
+  if (w.kind === 'blind' && mode === 'coop' && w.action === 'skip') {
+    log(`you're skipping blind ${w.slot}; bot skips too`);
+    send({ type: 'blind_ready', slot: w.slot, action: 'skip' });
+    send({ type: 'blind_skip', slot: w.slot });
+  } else if (w.kind === 'blind') {
     log(`you're ready for blind ${w.slot}; bot ready too`);
     send({ type: 'blind_ready', slot: w.slot });
   } else {

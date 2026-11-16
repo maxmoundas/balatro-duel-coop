@@ -27,7 +27,7 @@ function harness(opts = {}) {
       };
       clients.set(cid, c);
       host.connect(cid);
-      c.send({ type: 'hello', name, steamId, protocol: 2 });
+      c.send({ type: 'hello', name, steamId, protocol: 3 });
       c.id = c.last('welcome').id;
       return c;
     },
@@ -225,6 +225,38 @@ test('coop: no failure if the blind was already won', () => {
   assert.strictEqual(ps[0].all('team_failed').length, 0);
 });
 
+test('coop: skipping a blind - the rest play it, scaled to them; skipper waits for the next blind', () => {
+  const { ps, ev } = coop(3);
+  ev(ps[0], { type: 'blind_ready', slot: 1, action: 'skip' });
+  ev(ps[1], { type: 'blind_ready', slot: 1, action: 'select' });
+  ev(ps[2], { type: 'blind_ready', slot: 1, action: 'select' });
+  ps.forEach(p => assert.strictEqual(p.last('gate_go').playing, 2, 'two players play blind 1'));
+  ev(ps[0], { type: 'blind_skip', slot: 1 });
+
+  // The skipper is ready for blind 2 right away but waits for the others to finish blind 1.
+  ev(ps[0], { type: 'blind_ready', slot: 2, action: 'select' });
+  assert.strictEqual(ps[0].all('gate_go').length, 1);
+  assert.deepStrictEqual(ps[0].last('gate_status').waiting[0].waitingFor, ['P2', 'P3']);
+
+  // Their shop gate doesn't wait on the skipper.
+  ev(ps[1], { type: 'blind_end', slot: 1, won: true, hands: 2, best: 50 });
+  ev(ps[2], { type: 'blind_end', slot: 1, won: true, hands: 2, best: 50 });
+  ev(ps[1], { type: 'shop_ready', slot: 1 });
+  assert.strictEqual(ps[1].last('gate_go').kind, 'shop');
+
+  ev(ps[1], { type: 'blind_ready', slot: 2, action: 'select' });
+  ev(ps[2], { type: 'blind_ready', slot: 2, action: 'select' });
+  ps.forEach(p => assert.deepStrictEqual(p.last('gate_go'), { type: 'gate_go', kind: 'blind', slot: 2, playing: 3 }));
+});
+
+test('coop: team fails when everyone playing the blind is out of hands (skippers excluded)', () => {
+  const { ps, ev } = coop(2);
+  ev(ps[0], { type: 'blind_ready', slot: 1, action: 'skip' });
+  ev(ps[1], { type: 'blind_ready', slot: 1 });
+  ev(ps[1], { type: 'out_of_hands', slot: 1 });
+  assert.strictEqual(ps[0].all('team_failed').length, 1);
+});
+
 test('coop: leaver no longer blocks gates', () => {
   const { ps, ev } = coop(3);
   ev(ps[0], { type: 'blind_ready', slot: 1 });
@@ -365,8 +397,8 @@ test('TCP end-to-end: create, join, start, disconnect', async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
   const a = await tcpClient(port), b = await tcpClient(port);
-  a.sendj({ type: 'hello', name: 'Alice', protocol: 2 });
-  b.sendj({ type: 'hello', name: 'Bob', protocol: 2 });
+  a.sendj({ type: 'hello', name: 'Alice', protocol: 3 });
+  b.sendj({ type: 'hello', name: 'Bob', protocol: 3 });
   a.sendj({ type: 'create', mode: 'duel', deck: 'b_blue', stake: 2 });
   const lobby = await a.waitFor('lobby');
   b.sendj({ type: 'join', code: lobby.code });

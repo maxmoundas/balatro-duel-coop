@@ -142,8 +142,12 @@ MULTIPLAYER → **Advanced**. Leave the field empty to go back to your Steam nam
   when the team total reaches the requirement, and everyone moves on together.
 - Running out of hands doesn't lose the blind right away. You wait while teammates keep
   playing. The team only fails if **everyone** runs out of hands below the target.
-- All players have to select the blind before it starts (see [Round sync](#round-sync-both-modes)).
-  Skipping is disabled.
+- All players have to choose (select or skip) the blind before it starts (see
+  [Round sync](#round-sync-both-modes)).
+- **Skipping:** a player who skips a blind takes its tag and sits that blind out. The players who
+  select it play it, and its requirement is multiplied by how many of them there are instead.
+  The skipper then waits at the next blind select until everyone else has finished the blind
+  and left the shop.
 - The team wins when everyone beats the Ante 8 boss. Any player's run ending ends it for the team.
 
 ### Round sync (both modes)
@@ -152,7 +156,8 @@ Each player plays at their own speed. Players only wait for each other between r
 - **Before the shop:** after you beat a blind, **Cash Out** waits until every other player has
   finished that blind.
 - **Before the next blind:** selecting (or skipping) the next blind waits until every other
-  player has left their shop and is ready for that blind too.
+  player has left their shop and is ready for that blind too. If you skipped a blind, this is
+  where you wait for the players who played it.
 
 While you wait, a banner says who you're waiting for. You can press **Tab** to look at their
 board. Players whose run has ended never hold anyone up.
@@ -248,7 +253,7 @@ through the fengari Lua VM):
 cd server
 npm install
 npm start          # listens on 0.0.0.0:8788  (or double-click start-server.bat)
-npm test           # 27 tests of the rules + TCP, run against relay.lua
+npm test           # 29 tests of the rules + TCP, run against relay.lua
 ```
 
 `PORT`/`HOST` override the defaults; `MIN_PLAYERS=1` allows solo lobbies for testing. To deploy
@@ -278,7 +283,7 @@ The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_bli
 `G.FUNCS.go_to_menu` (forfeit).
 
 ## Known limitations
-- Not fully tested in-game yet. The rules (relay.lua) are covered by 27 tests, the Steam calls
+- Not fully tested in-game yet. The rules (relay.lua) are covered by 29 tests, the Steam calls
   were checked against a real account, and the Lua is syntax-checked.
 - Joining an in-game hosted lobby needs you to be Steam friends with the host.
 - A multiplayer run can't be resumed after Balatro is closed.

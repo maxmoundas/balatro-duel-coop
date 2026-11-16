@@ -822,7 +822,7 @@ function UI.draw_hud()
         end
       end
       text = string.format('CO-OP x%d  |  Teammates added %s this blind  |  Last hands: %s',
-        run.player_count or 1, MP.fmt(run.team_total or 0), table.concat(parts, ', '))
+        run.blind_players or run.player_count or 1, MP.fmt(run.team_total or 0), table.concat(parts, ', '))
     end
     if run.disconnected then text = text .. '  |  DISCONNECTED' end
     text = text .. '  |  TAB: view players'

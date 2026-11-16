@@ -201,14 +201,16 @@ local function run_gate(w)
   elseif w.action == 'skip' then
     MP.skip_blind_now(w.e)
   else
-    MP.begin_blind(w.e)
+    MP.begin_blind(w.e, w.playing)
   end
 end
 
-function MP.release_gate(kind, slot)
+-- `playing` (Co-op blind gates): how many players selected this blind rather than skipping it.
+function MP.release_gate(kind, slot, playing)
   local run = MP.run
   local w = run and run.gate
   if not w or (kind and (w.kind ~= kind or w.slot ~= slot)) then return end
+  w.playing = playing
   run.gate = nil
   run.gate_waiting_for = nil
   lock('mp_gate', false)
@@ -228,7 +230,7 @@ local function hold_at_gate(kind, slot, e, action)
   run.gate = { kind = kind, slot = slot, e = e, action = action }
   run.gate_waiting_for = nil
   lock('mp_gate', true)
-  MP.send({ type = kind == 'shop' and 'shop_ready' or 'blind_ready', slot = slot })
+  MP.send({ type = kind == 'shop' and 'shop_ready' or 'blind_ready', slot = slot, action = action })
   return true
 end
 
@@ -339,7 +341,7 @@ end
 -- Duel ------------------------------------------------------------------------
 
 handlers.gate_go = function(m)
-  MP.release_gate(m.kind, tonumber(m.slot))
+  MP.release_gate(m.kind, tonumber(m.slot), tonumber(m.playing))
 end
 
 handlers.gate_status = function(m)
@@ -696,9 +698,11 @@ end
 -- ---------------------------------------------------------------------------
 -- Gated actions
 
-function MP.begin_blind(e)
+function MP.begin_blind(e, playing)
   local run = MP.run
   run.slot = run.slot + 1
+  -- Co-op: teammates who skipped this blind don't play it, so it scales by who does.
+  run.blind_players = playing and playing > 0 and playing or nil
   start_record(false)
   run.hands = 0
   run.best = 0
@@ -739,10 +743,6 @@ function MP.install_hooks()
   G.FUNCS.skip_blind = function(e)
     local run = MP.run
     if not MP.in_game() then return orig.skip_blind(e) end
-    if run.mode == 'coop' then
-      MP.toast('Skipping blinds is disabled in Co-op', G.C.RED)
-      return
-    end
     if hold_at_gate('blind', run.slot + 1, e, 'skip') then return end
     return MP.skip_blind_now(e)
   end
@@ -783,8 +783,9 @@ function MP.install_hooks()
   function Blind:set_blind(blind, reset, silent)
     local ret = orig.set_blind(self, blind, reset, silent)
     local run = MP.run
-    if run and run.mode == 'coop' and (run.player_count or 1) > 1 and blind and not reset and (self.chips or 0) > 0 then
-      self.chips = self.chips * run.player_count
+    local n = run and (run.blind_players or run.player_count) or 1
+    if run and run.mode == 'coop' and n > 1 and blind and not reset and (self.chips or 0) > 0 then
+      self.chips = self.chips * n
       self.chip_text = number_format(self.chips)
     end
     return ret
@@ -875,8 +876,16 @@ end
 -- ---------------------------------------------------------------------------
 -- Per-frame logic
 
+-- Nothing in the base queue is holding up the game (a hand, discard or draw animating).
+-- Non-blocking events (UI juice, deck preview, stop_use counters...) are often queued
+-- while the player is just sitting in their hand, so they don't count.
 local function events_idle()
-  return G.E_MANAGER and G.E_MANAGER.queues and #G.E_MANAGER.queues.base == 0
+  local q = G.E_MANAGER and G.E_MANAGER.queues and G.E_MANAGER.queues.base
+  if not q then return true end
+  for _, ev in ipairs(q) do
+    if ev.blocking then return false end
+  end
+  return true
 end
 
 local function startup()
@@ -944,10 +953,14 @@ function MP.update(dt)
 
   local target = blind_target()
   if target > 0 and G.GAME.chips >= target then
+    -- A teammate's score beat the blind: end it here too, the way a winning hand would.
+    run.beaten_for = (in_hand and (run.beaten_for or 0) + dt) or 0
     if waiting then
       run.coop_waiting = nil
+      run.beaten_for = 0
       end_round()
-    elseif in_hand and events_idle() and not (G.play and G.play.cards[1]) then
+    elseif in_hand and not (G.play and G.play.cards[1]) and (events_idle() or run.beaten_for > 2) then
+      run.beaten_for = 0
       G.STATE = G.STATES.NEW_ROUND
       G.STATE_COMPLETE = false
     end
