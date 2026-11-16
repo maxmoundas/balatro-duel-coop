@@ -868,15 +868,23 @@ function UI.draw_hud()
       text = string.format('DUEL  |  You %d pts  -  %s %d pts  |  %s: last hand %s, best this blind %s, hands %s',
         mine, opp_name, theirs, opp_name, run.opp.last and MP.fmt(run.opp.last) or '-', MP.fmt(run.opp.best or 0), tostring(run.opp.hands or 0))
     else
+      local S = G.STATES
+      local in_blind = (G.STATE == S.SELECTING_HAND or G.STATE == S.HAND_PLAYED
+        or G.STATE == S.DRAW_TO_HAND or G.STATE == S.NEW_ROUND or run.coop_waiting)
+        and G.GAME and G.GAME.blind and G.GAME.blind.in_blind
       local parts = {}
       for _, p in ipairs(run.players) do
         if tostring(p.id) ~= MP.my_id then
           local t = run.team[tostring(p.id)]
-          parts[#parts + 1] = p.name .. ': ' .. (t and t.last and MP.fmt(t.last) or '-')
+          parts[#parts + 1] = in_blind and (p.name .. ': ' .. (t and t.last and MP.fmt(t.last) or '-')) or p.name
         end
       end
-      text = string.format('CO-OP x%d  |  Teammates added %s this blind  |  Last hands: %s',
-        MP.coop_scale(), MP.fmt(run.team_total or 0), table.concat(parts, ', '))
+      if in_blind then
+        text = string.format('CO-OP x%d  |  Teammates added %s this blind  |  Last hands: %s',
+          MP.coop_scale(), MP.fmt(run.team_total or 0), table.concat(parts, ', '))
+      else
+        text = string.format('CO-OP x%d  |  Team: %s', MP.coop_scale(), table.concat(parts, ', '))
+      end
     end
     if run.disconnected then text = text .. '  |  DISCONNECTED' end
     text = text .. '  |  TAB: view players'
@@ -887,7 +895,8 @@ function UI.draw_hud()
     centered(text, s * 0.35 + f:getHeight() / 2, s * 0.75, G.C.WHITE)
 
     -- Waiting states
-    if not run.finished then
+    local viewer_open = MP.viewer and MP.viewer.is_open and G.OVERLAY_MENU
+    if not run.finished and not viewer_open then
       if run.gate then
         local who = run.gate_waiting_for
         who = (type(who) == 'table' and #who > 0) and table.concat(who, ', ')
