@@ -91,6 +91,10 @@ local function mode_card(mode, button, compact)
       UIBox_button { label = { 'Choose deck & stake' }, button = button, colour = darken(info.colour, 0.35),
         minw = 4, minh = 0.55, scale = 0.38 },
     } }
+    nodes[#nodes + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.05 }, nodes = {
+      UIBox_button { label = { 'Play a challenge' }, button = button .. '_challenge', colour = darken(info.colour, 0.35),
+        minw = 4, minh = 0.55, scale = 0.38 },
+    } }
   end
   return { n = G.UIT.C, config = cfg, nodes = nodes }
 end
@@ -135,6 +139,24 @@ local function deck_stake_panel(deck_key, stake)
         { n = G.UIT.C, config = { align = 'cm', colour = G.C.BLACK, r = 0.1 }, nodes = stake_nodes },
       } },
     } },
+  } }
+end
+
+-- Lobby with a challenge: the challenge sets the deck, stake and rules.
+local function challenge_panel(id)
+  local ch = MP.find_challenge(id)
+  local nodes = {
+    text_row('CHALLENGE', 0.35, G.C.UI.TEXT_INACTIVE),
+    text_row(MP.challenge_name(id), 0.6, G.C.WHITE),
+  }
+  if ch then
+    local deck = ch.deck and ch.deck.type or 'Challenge Deck'
+    nodes[#nodes + 1] = text_row(tostring(deck) .. '  |  ' .. stake_name(1) .. ' Stake  |  challenge rules apply', 0.32, G.C.UI.TEXT_LIGHT)
+  else
+    nodes[#nodes + 1] = text_row('This challenge is missing from your game (is a mod missing?)', 0.32, G.C.RED)
+  end
+  return { n = G.UIT.R, config = { align = 'cm', padding = 0.15, r = 0.1, colour = G.C.BLACK, emboss = 0.05, minw = 8 }, nodes = {
+    { n = G.UIT.C, config = { align = 'cm' }, nodes = nodes },
   } }
 end
 
@@ -262,7 +284,12 @@ function UI.definition()
       end
     end
 
-    local ok, panel = pcall(deck_stake_panel, l.deck, tonumber(l.stake) or 1)
+    local ok, panel
+    if l.challenge then
+      ok, panel = pcall(challenge_panel, l.challenge)
+    else
+      ok, panel = pcall(deck_stake_panel, l.deck, tonumber(l.stake) or 1)
+    end
     nodes[#nodes + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.1 }, nodes = {
       mode_card(l.mode, nil, true),
       { n = G.UIT.C, config = { align = 'tm', padding = 0.1, minw = 3.2, r = 0.1, colour = G.C.L_BLACK }, nodes = players },
@@ -270,7 +297,8 @@ function UI.definition()
     if ok then
       nodes[#nodes + 1] = panel
     else
-      nodes[#nodes + 1] = text_row(deck_name(l.deck) .. '  |  ' .. stake_name(tonumber(l.stake) or 1) .. ' Stake', 0.4)
+      nodes[#nodes + 1] = text_row(l.challenge and ('Challenge: ' .. tostring(l.challenge)) or
+        (deck_name(l.deck) .. '  |  ' .. stake_name(tonumber(l.stake) or 1) .. ' Stake'), 0.4)
     end
 
     if MP.target and MP.target.kind == 'host' then
@@ -426,7 +454,8 @@ end
 function UI.invite_definition()
   local l = MP.lobby
   local nodes = { text_row('INVITE STEAM FRIENDS', 0.6, G.C.GOLD) }
-  nodes[#nodes + 1] = text_row('Lobby ' .. tostring(l and l.code) .. '  |  ' .. (l and l.mode == 'duel' and 'Duel' or 'Co-op'), 0.35, G.C.WHITE)
+  nodes[#nodes + 1] = text_row('Lobby ' .. tostring(l and l.code) .. '  |  ' .. (l and l.mode == 'duel' and 'Duel' or 'Co-op') ..
+    (l and l.challenge and ('  |  Challenge: ' .. MP.challenge_name(l.challenge)) or ''), 0.35, G.C.WHITE)
   if MP.target and MP.target.kind == 'host' then
     local hp = hosting_panel()
     if hp then nodes[#nodes + 1] = hp end
@@ -583,15 +612,31 @@ function UI.open_picker(mode)
   }, config = { offset = { x = 0, y = 0 } } }
 end
 
+-- Challenge picker: the solo challenge list, whose Play button creates the lobby instead.
+local function replace_button(node, from, to)
+  if type(node) ~= 'table' then return end
+  if node.config and node.config.button == from then node.config.button = to end
+  for _, c in ipairs(node.nodes or {}) do replace_button(c, from, to) end
+end
+
+function UI.open_challenge_picker(mode)
+  UI.picking = mode
+  local def = G.UIDEF.challenge_list(false)
+  replace_button(def, 'setup_run', 'mp_picker_back') -- Back returns to the multiplayer menu
+  G.FUNCS.overlay_menu { definition = def, config = { offset = { x = 0, y = 0 } } }
+  MP.toast('Pick a challenge for your ' .. UI.MODE_INFO[mode].title .. ' lobby', UI.MODE_INFO[mode].colour)
+end
+
 local function clean_up_picker()
   if use_smods_run_select() then pcall(SMODS.RunSelect.Functions.clean_up) end
 end
 
 -- Called instead of starting a solo run while the picker is open.
-local function create_lobby_from_picker(deck_key, stake, seed)
+local function create_lobby_from_picker(deck_key, stake, seed, challenge)
   local mode = UI.picking
   clean_up_picker()
-  MP.create_lobby { type = 'create', mode = mode, deck = deck_key, stake = stake, seed = (seed and seed ~= '') and seed or nil }
+  MP.create_lobby { type = 'create', mode = mode, deck = deck_key, stake = stake, seed = (seed and seed ~= '') and seed or nil,
+    challenge = challenge }
   UI.open(true) -- loading screen in place of the picker, then the lobby in place of that
 end
 
@@ -607,6 +652,8 @@ end
 G.FUNCS.mp_disconnect = function() MP.net.disconnect(); MP.target = nil; MP.lobby = nil; UI.refresh() end
 G.FUNCS.mp_pick_duel = function() UI.open_picker('duel') end
 G.FUNCS.mp_pick_coop = function() UI.open_picker('coop') end
+G.FUNCS.mp_pick_duel_challenge = function() UI.open_challenge_picker('duel') end
+G.FUNCS.mp_pick_coop_challenge = function() UI.open_challenge_picker('coop') end
 G.FUNCS.mp_picker_back = function() clean_up_picker(); UI.open() end
 G.FUNCS.mp_join = function()
   UI.last_error = nil
@@ -633,6 +680,13 @@ function UI.install_picker_hooks()
       local stake = G.P_STAKES[c.stake_choice or 'stake_white']
       return create_lobby_from_picker(c.deck_choice or 'b_red', stake and stake.order or 1, c.enable_seed and c.seed or nil)
     end
+  end
+  -- Challenge list: its Play button.
+  local orig_challenge = G.FUNCS.start_challenge_run
+  G.FUNCS.start_challenge_run = function(e)
+    local ch = UI.picking and e and e.config and G.CHALLENGES[e.config.id]
+    if not ch then return orig_challenge(e) end
+    return create_lobby_from_picker('b_challenge', 1, nil, ch.id)
   end
   -- Vanilla run setup screen (if Steamodded's is disabled).
   local orig_setup = G.FUNCS.start_setup_run
@@ -822,7 +876,7 @@ function UI.draw_hud()
         end
       end
       text = string.format('CO-OP x%d  |  Teammates added %s this blind  |  Last hands: %s',
-        run.blind_players or run.player_count or 1, MP.fmt(run.team_total or 0), table.concat(parts, ', '))
+        MP.coop_scale(), MP.fmt(run.team_total or 0), table.concat(parts, ', '))
     end
     if run.disconnected then text = text .. '  |  DISCONNECTED' end
     text = text .. '  |  TAB: view players'

@@ -3,7 +3,7 @@
 
 MP = MP or {}
 MP.VERSION = '0.2.0'
-MP.PROTOCOL = 3 -- must match Relay.PROTOCOL_VERSION in src/relay.lua
+MP.PROTOCOL = 4 -- must match Relay.PROTOCOL_VERSION in src/relay.lua
 MP.mod = SMODS.current_mod
 MP.config = MP.mod.config or {}
 

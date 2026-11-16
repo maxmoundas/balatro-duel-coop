@@ -12,6 +12,14 @@
 -- Co-op skips: players who skip blind S sit it out. The ones who select it play it, and
 -- its requirement scales by how many of them there are (sent as gate_go.playing).
 --
+-- Co-op saves: when everyone playing a blind is out of hands (team_failed), each of them
+-- answers fail_check saying whether a joker like Mr. Bones would save them. Once all have
+-- answered, team_fail_result tells everyone whether the team is saved (anyone saved ->
+-- the whole team moves on) or loses.
+--
+-- Co-op ante: a player who redeems an ante-lowering voucher (Hieroglyph / Petroglyph)
+-- sends ante_back; everyone else gets team_ante and moves back too (never below ante 1).
+--
 -- Single source of truth for the multiplayer rules. Transport-agnostic, and runs in two places:
 --   * inside the game when a player hosts (LÖVE thread + luasocket, LuaJIT / Lua 5.1)
 --   * in the standalone Node server (server/src/server.js, via fengari / Lua 5.3)
@@ -25,7 +33,7 @@
 
 local Relay = {}
 Relay.__index = Relay
-Relay.PROTOCOL_VERSION = 3
+Relay.PROTOCOL_VERSION = 4
 
 local MAX_PLAYERS = { duel = 2, coop = 4 }
 local SEED_CHARS = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789'
@@ -74,6 +82,10 @@ function Lobby.new(code, host, opts)
   self.stake = (stake and stake == math.floor(stake) and stake >= 1 and stake <= 64) and stake or 1
   local seed = type(opts.seed) == 'string' and opts.seed:upper() or nil
   self.seed = (seed and seed:match('^[A-Z1-9]+$') and #seed <= 8) and seed or rand_string(SEED_CHARS, 8)
+  -- Challenge id (e.g. 'c_omelette_1'); a challenge brings its own deck, rules and stake.
+  local ch = type(opts.challenge) == 'string' and opts.challenge or nil
+  self.challenge = (ch and #ch <= 64 and ch:match('^[%w_%-]+$')) and ch or nil
+  if self.challenge then self.stake = 1 end
   self.min_players = opts.min_players or 2
   self.json = opts.json
   self.players = {}
@@ -104,7 +116,7 @@ end
 function Lobby:info()
   return {
     type = 'lobby', code = self.code, mode = self.mode, deck = self.deck, stake = self.stake,
-    seed = self.seed, started = self.started, hostId = self:host_id(), players = self:player_list(),
+    seed = self.seed, challenge = self.challenge, started = self.started, hostId = self:host_id(), players = self:player_list(),
   }
 end
 
@@ -146,7 +158,7 @@ function Lobby:start(player)
   self.coop_slots = {}
   self.last_gate_status = self.json and self.json.encode({}) or '0' -- nobody waiting yet
   self:broadcast({
-    type = 'start', mode = self.mode, seed = self.seed, deck = self.deck, stake = self.stake,
+    type = 'start', mode = self.mode, seed = self.seed, deck = self.deck, stake = self.stake, challenge = self.challenge,
     playerCount = #self.players, players = self:player_list(),
   })
 end
@@ -186,6 +198,8 @@ function Lobby:handle(player, msg)
   elseif t == 'out_of_hands' then self:on_out_of_hands(player, slot)
   elseif t == 'run_over' then self:on_run_end(player, 'lost', slot)
   elseif t == 'run_won' then self:on_run_end(player, 'won', slot)
+  elseif t == 'ante_back' then self:on_ante_back(player, msg)
+  elseif t == 'fail_check' then self:on_fail_check(player, slot, msg.saved == true)
   end
   self:update_gates()
 end
@@ -383,6 +397,17 @@ function Lobby:on_out_of_hands(player, slot)
   self:check_coop_failure(slot)
 end
 
+-- A player redeemed an ante-lowering voucher: the whole team goes back with them.
+-- Each client clamps at ante 1 itself.
+function Lobby:on_ante_back(player, msg)
+  if self.mode ~= 'coop' then return end
+  local amount = math.floor(int(msg.amount, 1))
+  if amount < 1 then return end
+  if amount > 8 then amount = 8 end
+  local voucher = type(msg.voucher) == 'string' and msg.voucher:sub(1, 40) or nil
+  self:broadcast({ type = 'team_ante', amount = amount, from = player.id, name = player.name, voucher = voucher }, player)
+end
+
 -- Players still in the run who are playing blind `slot` (didn't skip it).
 function Lobby:coop_players(slot)
   return list_filter(self:alive_players(), function(p) return not p.game.skipping[slot] end)
@@ -390,14 +415,38 @@ end
 
 function Lobby:check_coop_failure(slot)
   local s = self:coop_slot(slot)
-  if s.won or s.failed then return end
+  if s.won then return end
+  if s.failed then return self:resolve_coop_failure(slot) end
   local playing = self:coop_players(slot)
   if #playing == 0 then return end
   for _, p in ipairs(playing) do
     if not p.game.out_of_hands[slot] then return end
   end
   s.failed = true
+  s.checks = {}
   self:broadcast({ type = 'team_failed', slot = slot })
+end
+
+function Lobby:on_fail_check(player, slot, saved)
+  if self.mode ~= 'coop' then return end
+  local s = self.coop_slots[slot]
+  if not (s and s.failed and s.checks) or s.resolved then return end
+  s.checks[player.id] = saved
+  self:resolve_coop_failure(slot)
+end
+
+-- Everyone playing the failed blind has said whether they'd be saved: anyone saved saves the team.
+function Lobby:resolve_coop_failure(slot)
+  local s = self.coop_slots[slot]
+  if not (s and s.failed and s.checks) or s.resolved then return end
+  local saved = false
+  for _, p in ipairs(self:coop_players(slot)) do
+    local c = s.checks[p.id]
+    if c == nil then return end
+    if c then saved = true end
+  end
+  s.resolved = true
+  self:broadcast({ type = 'team_fail_result', slot = slot, saved = saved })
 end
 
 -- ---- run end ---------------------------------------------------------------------
@@ -494,7 +543,7 @@ function Relay:dispatch(player, msg)
     self:leave_lobby(player)
     local code = self:new_code()
     local lobby = Lobby.new(code, player, {
-      mode = msg.mode, deck = msg.deck, stake = msg.stake, seed = msg.seed, min_players = self.min_players, json = self.json,
+      mode = msg.mode, deck = msg.deck, stake = msg.stake, seed = msg.seed, challenge = msg.challenge, min_players = self.min_players, json = self.json,
     })
     self.lobbies[code] = lobby
     self.log('lobby ' .. code .. ' created (' .. lobby.mode .. ') by ' .. player.name)

@@ -259,6 +259,21 @@ local function new_run(msg)
   }
 end
 
+-- G.CHALLENGES entry for a challenge id ('c_omelette_1'), or nil.
+function MP.find_challenge(id)
+  if type(id) ~= 'string' then return nil end
+  for _, ch in ipairs(G.CHALLENGES or {}) do
+    if ch.id == id then return ch end
+  end
+end
+
+function MP.challenge_name(id)
+  local ok, name = pcall(localize, id, 'challenge_names')
+  if ok and type(name) == 'string' and name ~= 'ERROR' then return name end
+  local ch = MP.find_challenge(id)
+  return ch and ch.name or tostring(id)
+end
+
 function MP.start_game(msg)
   MP.run = new_run(msg)
   if MP.lobby then MP.lobby.started = true end
@@ -266,10 +281,21 @@ function MP.start_game(msg)
   if G.OVERLAY_MENU then G.FUNCS.exit_overlay_menu() end
   local center = G.P_CENTERS[msg.deck] or G.P_CENTERS.b_red
   G.GAME.viewed_back = Back(center)
+  local challenge = msg.challenge and MP.find_challenge(msg.challenge)
+  if msg.challenge and not challenge then
+    MP.toast('Challenge ' .. tostring(msg.challenge) .. ' is missing from your game - playing without it', G.C.RED)
+  end
+  MP.run.challenge = challenge and challenge.id or nil
   MP.starting_run = true
-  G.FUNCS.start_run(nil, { stake = tonumber(msg.stake) or 1, seed = msg.seed, deck_choice = { name = center.name } })
+  if challenge then
+    -- The challenge brings its own deck, rules and starting cards (stake 1, like solo challenges).
+    G.FUNCS.start_run(nil, { stake = 1, seed = msg.seed, challenge = challenge })
+  else
+    G.FUNCS.start_run(nil, { stake = tonumber(msg.stake) or 1, seed = msg.seed, deck_choice = { name = center.name } })
+  end
   MP.starting_run = false
-  MP.toast((msg.mode == 'duel' and 'Duel' or 'Co-op') .. ' started! Seed ' .. tostring(msg.seed), G.C.GREEN)
+  MP.toast((msg.mode == 'duel' and 'Duel' or 'Co-op') .. ' started! Seed ' .. tostring(msg.seed) ..
+    (challenge and ('  |  Challenge: ' .. MP.challenge_name(challenge.id)) or ''), G.C.GREEN)
 end
 
 -- ---------------------------------------------------------------------------
@@ -410,10 +436,41 @@ handlers.team_status = function(m)
   if MP.run then MP.run.team_status = m end
 end
 
+-- Everyone playing this blind is out of hands. Tell the server whether a joker like
+-- Mr. Bones would save us; if it saves anyone, the whole team moves on (team_fail_result).
 handlers.team_failed = function(m)
   local run = MP.run
   if not run then return end
-  run.team_failed_slot = tonumber(m.slot)
+  local slot = tonumber(m.slot)
+  run.team_failed_slot = slot
+  if slot ~= run.slot then return end
+  local extra = 0
+  for _, p in ipairs(run.pending) do
+    if p.slot == slot then extra = extra + p.score end
+  end
+  local ok, saved = pcall(MP.would_be_saved, extra)
+  MP.send({ type = 'fail_check', slot = slot, saved = ok and saved or false })
+end
+
+handlers.team_fail_result = function(m)
+  local run = MP.run
+  if not run then return end
+  run.team_fail_result = { slot = tonumber(m.slot), saved = m.saved == true }
+end
+
+-- A teammate redeemed Hieroglyph / Petroglyph: the whole team goes back with them.
+handlers.team_ante = function(m)
+  local run = MP.run
+  if not run or run.mode ~= 'coop' or not MP.in_game() then return end
+  local n = math.floor(tonumber(m.amount) or 0)
+  if n < 1 then return end
+  local who = tostring(m.name or 'A teammate')
+  local what = type(m.voucher) == 'string' and (' (' .. m.voucher .. ')') or ''
+  if MP.go_back_antes(n) then
+    MP.toast(who .. what .. ' sent the team back ' .. n .. ' ante' .. (n > 1 and 's' or ''), G.C.ORANGE)
+  else
+    MP.toast(who .. what .. ': already at ante 1', G.C.ORANGE)
+  end
 end
 
 -- Game over ---------------------------------------------------------------------
@@ -443,8 +500,114 @@ function MP.fmt(n)
   return tostring(n or 0)
 end
 
+-- Co-op: how many players' worth of score a blind needs. While a blind is being played
+-- that's the players who selected it (teammates who skipped sit it out); otherwise
+-- (blind select screen, run info) it's everyone still in the run.
+function MP.coop_scale()
+  local run = MP.run
+  if not run or run.mode ~= 'coop' then return 1 end
+  local n = run.blind_players or (#run.players > 0 and #run.players) or run.player_count or 1
+  return math.max(1, n)
+end
+
+-- Never below ante 1 in a multiplayer run.
+local function ante_floor_mod(mod)
+  local ante = G.GAME and G.GAME.round_resets and G.GAME.round_resets.ante or 1
+  return math.min(0, math.max(mod, 1 - ante))
+end
+
+local BLIND_TYPES = { Small = 'small', Big = 'big', Boss = 'boss' }
+
+-- The score text each blind on the blind select screen shows right now.
+local function blind_choice_texts()
+  local out = {}
+  local rr = G.GAME and G.GAME.round_resets
+  if not (rr and rr.blind_choices) then return out end
+  for type in pairs(BLIND_TYPES) do
+    local b = G.P_BLINDS[rr.blind_choices[type] or '']
+    if b then
+      local ok, amt = pcall(function()
+        return get_blind_amount(rr.blind_ante or rr.ante) * b.mult * G.GAME.starting_params.ante_scaling
+      end)
+      if ok then out[type] = number_format(amt) end
+    end
+  end
+  return out
+end
+
+local function retext(node, old, new)
+  if type(node) ~= 'table' then return false end
+  local hit = false
+  if node.config and node.config.text == old then
+    node.config.text = new
+    node.config.text_drawable = nil -- rebuilt from the new text on the next update
+    hit = true
+  end
+  for _, c in ipairs(node.children or {}) do
+    if retext(c, old, new) then hit = true end
+  end
+  return hit
+end
+
+-- Update the blind select screen's score numbers (if it's showing) from `before` texts.
+local function refresh_blind_select(before)
+  if not G.blind_select_opts then return end
+  local after = blind_choice_texts()
+  for type, key in pairs(BLIND_TYPES) do
+    local box = G.blind_select_opts[key]
+    if box and box.UIRoot and before[type] and after[type] and before[type] ~= after[type] then
+      if retext(box.UIRoot, before[type], after[type]) then pcall(box.recalculate, box) end
+    end
+  end
+end
+
+-- Move this player back `n` antes (a teammate used Hieroglyph / Petroglyph), never below
+-- ante 1. Only the ante moves; the voucher's hand/discard cost stays with its owner.
+-- Returns false if we were already at ante 1.
+function MP.go_back_antes(n)
+  local rr = G.GAME.round_resets
+  if ante_floor_mod(-n) == 0 then
+    rr.blind_ante = math.max(1, rr.blind_ante or rr.ante or 1)
+    return false
+  end
+  local before = blind_choice_texts()
+  ease_ante(-n) -- clamped to ante 1 by our hook
+  rr.blind_ante = math.max(1, (rr.blind_ante or rr.ante or 1) - n)
+  refresh_blind_select(before)
+  return true
+end
+
 local function blind_target()
   return G.GAME and G.GAME.blind and G.GAME.blind.chips or 0
+end
+
+-- Would a joker save this run if the blind ended now? (Mr. Bones: at least 25% of the
+-- blind scored, counting the team's pooled score.) `extra`: teammate score not applied yet.
+function MP.would_be_saved(extra)
+  local target = blind_target()
+  if target <= 0 then return false end
+  if ((G.GAME.chips or 0) + (extra or 0)) / target < 0.25 then return false end
+  for _, j in ipairs(G.jokers and G.jokers.cards or {}) do
+    local key = j.config and j.config.center and j.config.center.key
+    if (key == 'j_mr_bones' or (j.ability and j.ability.name == 'Mr. Bones')) and not j.debuff then return true end
+  end
+  return false
+end
+
+-- Add a teammate's hand to our blind score right away. One of our own hands may be
+-- animating the chip counter towards an absolute total; move that total along too so
+-- the animation doesn't overwrite the teammate's score.
+local function add_team_chips(score)
+  G.GAME.chips = G.GAME.chips + score
+  for _, q in pairs(G.E_MANAGER and G.E_MANAGER.queues or {}) do
+    for _, ev in ipairs(q) do
+      local e = ev.ease
+      if e and not ev.complete and e.ref_table == G.GAME and e.ref_value == 'chips' then
+        if type(e.end_val) == 'number' then e.end_val = e.end_val + score end
+        if e.start_time and type(e.start_val) == 'number' then e.start_val = e.start_val + score end
+      end
+    end
+  end
 end
 
 local function score_of_current_hand()
@@ -709,6 +872,8 @@ function MP.begin_blind(e, playing)
   run.team_total = 0
   run.coop_waiting = nil
   run.team_failed_slot = nil
+  run.team_fail_result = nil
+  run.team_saved_slot = nil
   run.opp.best = 0
   if run.mode == 'duel' then MP.send({ type = 'blind_start', slot = run.slot }) end
   MP.orig.select_blind(e)
@@ -751,6 +916,8 @@ function MP.install_hooks()
   orig.cash_out = G.FUNCS.cash_out
   G.FUNCS.cash_out = function(e)
     local run = MP.run
+    -- The blind is over: the next blind select screen previews it for the whole team.
+    if run then run.blind_players = nil end
     if run and hold_at_gate('shop', run.slot, e) then return end
     return orig.cash_out(e)
   end
@@ -778,15 +945,46 @@ function MP.install_hooks()
     return ret
   end
 
-  -- Co-op: blind requirement scales with the number of players
-  orig.set_blind = Blind.set_blind
-  function Blind:set_blind(blind, reset, silent)
-    local ret = orig.set_blind(self, blind, reset, silent)
+  -- Co-op: blind requirement scales with the number of players. Scaling the base amount
+  -- (rather than the blind once it's set) keeps every place that shows a blind's score in
+  -- agreement: the blind select screen, run info and the blind itself.
+  orig.get_blind_amount = get_blind_amount
+  get_blind_amount = function(ante, ...)
+    local amt = orig.get_blind_amount(ante, ...)
+    local n = MP.coop_scale()
+    if n > 1 and type(amt) == 'number' then amt = amt * n end
+    return amt
+  end
+
+  -- Multiplayer runs never go below ante 1 (Hieroglyph / Petroglyph at ante 1, a teammate's
+  -- voucher...). ease_ante applies its change in an event, so clamp when it applies.
+  orig.ease_ante = ease_ante
+  ease_ante = function(mod, ...)
+    if not (MP.run and type(mod) == 'number' and mod < 0) then return orig.ease_ante(mod, ...) end
+    local args = { ... }
+    G.E_MANAGER:add_event(Event({ trigger = 'immediate', func = function()
+      local m = ante_floor_mod(mod)
+      if m < 0 then orig.ease_ante(m, unpack(args)) end
+      return true
+    end }))
+  end
+
+  -- Ante-lowering vouchers: keep the blind select ante at 1 or more, and in Co-op send the
+  -- whole team back with the player who redeemed it.
+  orig.apply_to_run = Card.apply_to_run
+  function Card:apply_to_run(center, ...)
+    local name = center and center.name or (self and self.ability and self.ability.name)
+    local extra = center and center.config and center.config.extra or (self and self.ability and self.ability.extra)
+    local ret = orig.apply_to_run(self, center, ...)
     local run = MP.run
-    local n = run and (run.blind_players or run.player_count) or 1
-    if run and run.mode == 'coop' and n > 1 and blind and not reset and (self.chips or 0) > 0 then
-      self.chips = self.chips * n
-      self.chip_text = number_format(self.chips)
+    if run and (name == 'Hieroglyph' or name == 'Petroglyph') then
+      local rr = G.GAME.round_resets
+      if rr.blind_ante and rr.blind_ante < 1 then rr.blind_ante = 1 end
+      -- `self` is the redeemed card; it's nil when a deck/challenge applies starting vouchers,
+      -- which every player gets anyway.
+      if self and run.mode == 'coop' and MP.in_game() then
+        MP.send({ type = 'ante_back', slot = run.slot, amount = math.max(1, math.floor(tonumber(extra) or 1)), voucher = name })
+      end
     end
     return ret
   end
@@ -810,6 +1008,21 @@ function MP.install_hooks()
     record_end(won)
     MP.send({ type = 'blind_end', slot = run.slot, won = won, hands = run.hands, best = run.best })
     return orig.end_round()
+  end
+
+  -- Co-op: a teammate's Mr. Bones (or similar) saved the team, so this run is saved too.
+  if SMODS and SMODS.calculate_context then
+    orig.calculate_context = SMODS.calculate_context
+    SMODS.calculate_context = function(context, ...)
+      local ret = orig.calculate_context(context, ...)
+      local run = MP.run
+      if run and type(context) == 'table' and context.end_of_round and context.game_over
+        and run.team_saved_slot and run.team_saved_slot == run.slot and not SMODS.saved then
+        SMODS.saved = 'Saved by your team'
+        G.GAME.saved_text = 'Saved by your team'
+      end
+      return ret
+    end
   end
 
   orig.update_game_over = Game.update_game_over
@@ -930,13 +1143,12 @@ function MP.update(dt)
   local in_hand = G.STATE == G.STATES.SELECTING_HAND
   local waiting = run.coop_waiting == run.slot
 
-  -- Apply teammates' scores only while no hand of ours is animating, so the
-  -- vanilla chip ease can't overwrite them.
-  if (in_hand or waiting) and #run.pending > 0 and G.GAME.blind and blind_target() > 0 then
+  -- Apply teammates' scores as soon as they arrive, while we're still in this blind.
+  if #run.pending > 0 and G.GAME.blind and G.GAME.blind.in_blind and blind_target() > 0 then
     local keep = {}
     for _, p in ipairs(run.pending) do
       if p.slot == run.slot then
-        G.GAME.chips = G.GAME.chips + p.score
+        add_team_chips(p.score)
         run.team_total = run.team_total + p.score
         MP.toast('+' .. MP.fmt(p.score) .. ' from ' .. tostring(p.name), G.C.BLUE)
         pcall(function()
@@ -964,8 +1176,12 @@ function MP.update(dt)
       G.STATE = G.STATES.NEW_ROUND
       G.STATE_COMPLETE = false
     end
-  elseif waiting and run.team_failed_slot == run.slot then
+  elseif waiting and run.team_fail_result and run.team_fail_result.slot == run.slot then
+    -- Nobody could beat the blind. If anyone on the team was saved (Mr. Bones), we all move on.
     run.force_fail = true
+    run.team_saved_slot = run.team_fail_result.saved and run.slot or nil
+    if run.team_fail_result.saved then MP.toast('Saved! The team moves on to the next round', G.C.GREEN) end
+    run.team_fail_result = nil
     end_round()
   end
 end

@@ -27,7 +27,7 @@ function harness(opts = {}) {
       };
       clients.set(cid, c);
       host.connect(cid);
-      c.send({ type: 'hello', name, steamId, protocol: 3 });
+      c.send({ type: 'hello', name, steamId, protocol: 4 });
       c.id = c.last('welcome').id;
       return c;
     },
@@ -217,6 +217,27 @@ test('coop: team fails only when everyone is out of hands', () => {
   assert.strictEqual(ps[0].all('team_failed').length, 1);
 });
 
+test('coop: one teammate saved (Mr. Bones) saves the whole team', () => {
+  const { ps, ev } = coop(3);
+  ps.forEach(p => ev(p, { type: 'out_of_hands', slot: 1 }));
+  ev(ps[0], { type: 'fail_check', slot: 1, saved: false });
+  ev(ps[1], { type: 'fail_check', slot: 1, saved: true });
+  assert.strictEqual(ps[0].all('team_fail_result').length, 0, 'waits for every answer');
+  ev(ps[2], { type: 'fail_check', slot: 1, saved: false });
+  ps.forEach(p => assert.deepStrictEqual(p.last('team_fail_result'), { type: 'team_fail_result', slot: 1, saved: true }));
+  ev(ps[2], { type: 'fail_check', slot: 1, saved: true });
+  assert.strictEqual(ps[0].all('team_fail_result').length, 1, 'resolved once');
+});
+
+test('coop: nobody saved -> team fail result says so; a leaver does not stall it', () => {
+  const { ps, ev } = coop(3);
+  ps.forEach(p => ev(p, { type: 'out_of_hands', slot: 1 }));
+  ev(ps[0], { type: 'fail_check', slot: 1, saved: false });
+  ev(ps[1], { type: 'fail_check', slot: 1, saved: false });
+  ps[2].close();
+  assert.strictEqual(ps[0].last('team_fail_result').saved, false);
+});
+
 test('coop: no failure if the blind was already won', () => {
   const { ps, ev } = coop(2);
   ev(ps[0], { type: 'out_of_hands', slot: 1 });
@@ -275,6 +296,44 @@ test('coop: any run loss ends the game for the team; all wins -> team win', () =
   assert.strictEqual(ps[1].all('game_over').length, 0);
   ev(ps[1], { type: 'run_won', slot: 24 });
   assert.strictEqual(ps[1].last('game_over').result, 'won');
+});
+
+test('coop: an ante-lowering voucher moves every teammate back', () => {
+  const { ps, ev } = coop(3);
+  ev(ps[0], { type: 'ante_back', slot: 3, amount: 1, voucher: 'Hieroglyph' });
+  assert.strictEqual(ps[0].all('team_ante').length, 0);
+  for (const p of ps.slice(1)) {
+    const m = p.last('team_ante');
+    assert.strictEqual(m.amount, 1);
+    assert.strictEqual(m.from, ps[0].id);
+    assert.strictEqual(m.voucher, 'Hieroglyph');
+  }
+  ev(ps[1], { type: 'ante_back', slot: 3, amount: 99 });
+  assert.strictEqual(ps[0].last('team_ante').amount, 8);
+  ev(ps[1], { type: 'ante_back', slot: 3, amount: 0 });
+  assert.strictEqual(ps[0].all('team_ante').length, 1);
+});
+
+test('duel: ante-lowering vouchers stay personal', () => {
+  const { a, b, ev } = duel();
+  ev(a, { type: 'ante_back', slot: 3, amount: 1 });
+  assert.strictEqual(b.all('team_ante').length, 0);
+});
+
+test('challenge lobbies pass the challenge to everyone at stake 1', () => {
+  const h = harness();
+  const a = h.client('A'), b = h.client('B');
+  a.send({ type: 'create', mode: 'coop', challenge: 'c_omelette_1', stake: 5 });
+  const code = a.last('lobby').code;
+  assert.strictEqual(a.last('lobby').challenge, 'c_omelette_1');
+  b.send({ type: 'join', code });
+  a.send({ type: 'start' });
+  assert.strictEqual(b.last('start').challenge, 'c_omelette_1');
+  assert.strictEqual(b.last('start').stake, 1);
+
+  const c = h.client('C');
+  c.send({ type: 'create', mode: 'duel', challenge: 'bad id!' });
+  assert.strictEqual(c.last('lobby').challenge, undefined);
 });
 
 test('snapshots are relayed to the other players, also after game over', () => {
@@ -397,8 +456,8 @@ test('TCP end-to-end: create, join, start, disconnect', async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
   const a = await tcpClient(port), b = await tcpClient(port);
-  a.sendj({ type: 'hello', name: 'Alice', protocol: 3 });
-  b.sendj({ type: 'hello', name: 'Bob', protocol: 3 });
+  a.sendj({ type: 'hello', name: 'Alice', protocol: 4 });
+  b.sendj({ type: 'hello', name: 'Bob', protocol: 4 });
   a.sendj({ type: 'create', mode: 'duel', deck: 'b_blue', stake: 2 });
   const lobby = await a.waitFor('lobby');
   b.sendj({ type: 'join', code: lobby.code });
