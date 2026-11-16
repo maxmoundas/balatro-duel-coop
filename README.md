@@ -248,7 +248,7 @@ through the fengari Lua VM):
 cd server
 npm install
 npm start          # listens on 0.0.0.0:8788  (or double-click start-server.bat)
-npm test           # 25 tests of the rules + TCP, run against relay.lua
+npm test           # 27 tests of the rules + TCP, run against relay.lua
 ```
 
 `PORT`/`HOST` override the defaults; `MIN_PLAYERS=1` allows solo lobbies for testing. To deploy
@@ -277,8 +277,8 @@ The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_bli
 `Game:update_game_over`, `win_game`, `save_run` (multiplayer runs aren't saved) and
 `G.FUNCS.go_to_menu` (forfeit).
 
-## Known limitations (v0.1)
-- Not fully tested in-game yet. The rules (relay.lua) are covered by 25 tests, the Steam calls
+## Known limitations
+- Not fully tested in-game yet. The rules (relay.lua) are covered by 27 tests, the Steam calls
   were checked against a real account, and the Lua is syntax-checked.
 - Joining an in-game hosted lobby needs you to be Steam friends with the host.
 - A multiplayer run can't be resumed after Balatro is closed.
@@ -293,3 +293,12 @@ The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_bli
 - **Alone:** `node tools/test-bot.js CODE` adds a stand-in second player to your lobby. It
   connects to your in-game server on this PC and shadows your blinds, hands and scores. It tests
   the game rules and menus, not the Steam connection.
+
+## License
+
+[MIT](LICENSE). The license covers this mod's own code only.
+
+This is an unofficial fan mod. It isn't affiliated with or endorsed by LocalThunk or Playstack.
+Balatro is their trademark. The mod doesn't include any of the game's code or assets, so every
+player needs their own copy of Balatro. Lovely and Steamodded are separate projects with their
+own licenses. The installer downloads pinned versions of them from their official GitHub repositories.
