@@ -52,8 +52,13 @@ again. It replaces the old version of the mod and leaves Lovely and Steamodded a
      (on Discord, for example). The friend opens MULTIPLAYER, clicks **Paste**, then **Join**.
 4. **Host:** once everyone is in the lobby, click **Start Game**.
 
-In game: **F7** toggles the multiplayer status bar. **Tab** (or clicking the status bar) shows
-the other players' cards, jokers and scores.
+In game: **F7** toggles the multiplayer status bar. **Tab** (or clicking the status bar) opens
+the player viewer, where you can compare yourself with the other players: their jokers,
+consumables, vouchers, tags and hand, their **whole deck** with every enhancement, seal and
+edition, their **poker hand levels** next to yours, and the score of every blind.
+
+Your name in multiplayer is your **Steam name**. To use a different one, set it under
+MULTIPLAYER → **Advanced**. Leave the field empty to go back to your Steam name.
 
 ### If something goes wrong
 - **"Their game didn't answer through Steam":** check that you're Steam friends, that both of you
@@ -68,9 +73,7 @@ the other players' cards, jokers and scores.
 
 ### Duel (1v1)
 - Both players get the **same seed, deck and stake**.
-- **Hands are played in lockstep.** Neither player can play hand *N* of a blind until the other is
-  also ready to play hand *N*, or has already finished that blind. Discards, shopping and other
-  actions are not gated.
+- **Play at your own pace, but rounds stay in sync** (see [Round sync](#round-sync-both-modes)).
 - After each blind both players have finished, points are awarded:
   - **+1** to whoever scored the single highest hand in that blind
   - **+1** to whoever beat the blind in the fewest hands (only players who beat it qualify)
@@ -92,8 +95,20 @@ the other players' cards, jokers and scores.
   when the team total reaches the requirement, and everyone moves on together.
 - Running out of hands doesn't lose the blind right away. You wait while teammates keep
   playing. The team only fails if **everyone** runs out of hands below the target.
-- All players have to select the blind before it starts. Skipping is disabled.
+- All players have to select the blind before it starts (see [Round sync](#round-sync-both-modes)).
+  Skipping is disabled.
 - The team wins when everyone beats the Ante 8 boss. Any player's run ending ends it for the team.
+
+### Round sync (both modes)
+Hands, discards, consumables and everything else inside a blind or shop are never held up.
+Each player plays at their own speed. Players only wait for each other between rounds:
+- **Before the shop:** after you beat a blind, **Cash Out** waits until every other player has
+  finished that blind.
+- **Before the next blind:** selecting (or skipping) the next blind waits until every other
+  player has left their shop and is ready for that blind too.
+
+While you wait, a banner says who you're waiting for. You can press **Tab** to look at their
+board. Players whose run has ended never hold anyone up.
 
 ## Manual install (instead of the installer)
 
@@ -200,7 +215,8 @@ server under **Advanced**, or you can build it into the friend package with
 | Standalone server (runs relay.lua via fengari) | `server/src/server.js`, `relay-host.js` |
 
 The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_blind`,
-`G.FUNCS.play_cards_from_highlighted` (duel hand gate), `G.FUNCS.evaluate_play` (hand score),
+`G.FUNCS.cash_out` (shop gate), `G.FUNCS.play_cards_from_highlighted` (hand count),
+`G.FUNCS.evaluate_play` (hand score),
 `Blind:set_blind` (co-op scaling), `end_round` (blind results / co-op wait),
 `Game:update_game_over`, `win_game`, `save_run` (multiplayer runs aren't saved) and
 `G.FUNCS.go_to_menu` (forfeit).

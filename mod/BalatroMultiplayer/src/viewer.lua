@@ -1,5 +1,5 @@
--- In-run player viewer (TAB, or click the status bar): compare your board, cards and
--- score history with the players you're dueling / co-oping with.
+-- In-run player viewer (TAB, or click the status bar): compare your board, full deck,
+-- poker hand levels, vouchers and score history with the other players.
 --
 -- Other players' cards are rebuilt locally as real Card objects from their snapshot,
 -- so hovering shows the normal tooltips. Card creation can touch the seeded RNG
@@ -134,9 +134,36 @@ local function hand_name(name)
 end
 
 local function most_played(s)
-  local h = s.poker_hands and s.poker_hands[1]
-  if not h then return '-' end
-  return hand_name(h.n) .. ' (Lv ' .. tostring(h.l or 1) .. ')'
+  local best
+  for _, h in ipairs(s.poker_hands or {}) do
+    if (h.p or 0) > 0 and (not best or h.p > best.p) then best = h end
+  end
+  if not best then return '-' end
+  return hand_name(best.n) .. ' (Lv ' .. tostring(best.l or 1) .. ')'
+end
+
+-- Counts of upgraded cards in a full deck.
+local function deck_stats(s)
+  local st = { total = 0, enh = 0, seal = 0, ed = 0 }
+  for _, d in ipairs(s.full_deck or {}) do
+    st.total = st.total + 1
+    if d.e and d.e ~= 'c_base' then st.enh = st.enh + 1 end
+    if d.s then st.seal = st.seal + 1 end
+    if d.ed then st.ed = st.ed + 1 end
+  end
+  return st
+end
+
+local function deck_summary(s)
+  local st = deck_stats(s)
+  return st.total .. ' cards: ' .. st.enh .. ' enh, ' .. st.seal .. ' seal, ' .. st.ed .. ' ed'
+end
+
+local function center_name(set, key)
+  local ok, name = pcall(localize, { type = 'name_text', set = set, key = key })
+  if ok and name and name ~= 'ERROR' then return name end
+  local c = (set == 'Tag' and G.P_TAGS or G.P_CENTERS)[key]
+  return c and c.name or key
 end
 
 local function points_of(id)
@@ -183,8 +210,13 @@ local function compare_tab()
   end
   rows[#rows + 1] = compare_row('Jokers', #(me.jokers or {}) .. ' / ' .. tostring(me.joker_slots or '-'),
     #(them.jokers or {}) .. ' / ' .. tostring(them.joker_slots or '-'))
-  rows[#rows + 1] = compare_row('Cards in deck', tostring(me.deck_count or 0) .. ' / ' .. tostring(me.deck_total or 0),
+  rows[#rows + 1] = compare_row('Hand size', tostring(me.hand_size or '-'), tostring(them.hand_size or '-'),
+    'high', me.hand_size, them.hand_size)
+  rows[#rows + 1] = compare_row('Draw pile / deck', tostring(me.deck_count or 0) .. ' / ' .. tostring(me.deck_total or 0),
     tostring(them.deck_count or 0) .. ' / ' .. tostring(them.deck_total or 0))
+  rows[#rows + 1] = compare_row('Upgraded cards', deck_summary(me), deck_summary(them))
+  rows[#rows + 1] = compare_row('Vouchers', tostring(#(me.vouchers or {})), tostring(#(them.vouchers or {})),
+    'high', #(me.vouchers or {}), #(them.vouchers or {}))
   rows[#rows + 1] = compare_row('Most played', most_played(me), most_played(them))
 
   return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.08 }, nodes = {
@@ -199,13 +231,101 @@ end
 local function cards_tab()
   local c = V.ctx
   local them = c.them
-  return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.08 }, nodes = {
+  local vouchers = {}
+  for _, k in ipairs(them.vouchers or {}) do vouchers[#vouchers + 1] = { k = k } end
+  local tags = {}
+  for _, k in ipairs(them.tags or {}) do tags[#tags + 1] = center_name('Tag', k) end
+  return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.06 }, nodes = {
     panel({
-      labelled_cards('Jokers ' .. #(them.jokers or {}) .. '/' .. tostring(them.joker_slots or '-'), them.jokers, false, 0.7, 9),
-      labelled_cards('Consumables ' .. #(them.cons or {}) .. '/' .. tostring(them.cons_slots or '-'), them.cons, false, 0.6, 9),
-      labelled_cards('Hand', them.hand, true, 0.6, 9),
+      labelled_cards('Jokers ' .. #(them.jokers or {}) .. '/' .. tostring(them.joker_slots or '-'), them.jokers, false, 0.6, 9),
+      labelled_cards('Consumables ' .. #(them.cons or {}) .. '/' .. tostring(them.cons_slots or '-'), them.cons, false, 0.5, 9),
+      labelled_cards('Vouchers ' .. #vouchers, vouchers, false, 0.5, 9),
+      labelled_cards('Hand ' .. #(them.hand or {}) .. '/' .. tostring(them.hand_size or '-'), them.hand, true, 0.5, 9),
     }, G.C.L_BLACK),
+    row({ T('Tags: ' .. (#tags > 0 and table.concat(tags, ', ') or 'none'), 0.3, G.C.WHITE) }),
     row({ T('Hover a card to read it. Face-down cards stay hidden.', 0.28, G.C.UI.TEXT_INACTIVE) }),
+  } }
+end
+
+-- Full deck, one row per suit, high ranks first (like the game's deck view).
+local SUIT_ORDER = { Spades = 1, Hearts = 2, Clubs = 3, Diamonds = 4 }
+
+local function rank_sort_value(card_key)
+  local pc = G.P_CARDS[card_key or '']
+  local r = pc and SMODS and SMODS.Ranks and SMODS.Ranks[pc.value]
+  return r and (r.sort_nominal or r.id or r.nominal) or 0
+end
+
+local function deck_tab()
+  local c = V.ctx
+  local owner = V.deck_owner == 'me' and 'me' or 'them'
+  local deck = c[owner].full_deck or {}
+  local groups, names = {}, {}
+  for _, d in ipairs(deck) do
+    local pc = G.P_CARDS[d.c or '']
+    local suit = pc and pc.suit or '?'
+    if not groups[suit] then groups[suit] = {}; names[#names + 1] = suit end
+    groups[suit][#groups[suit] + 1] = d
+  end
+  table.sort(names, function(a, b)
+    local oa, ob = SUIT_ORDER[a] or 99, SUIT_ORDER[b] or 99
+    if oa ~= ob then return oa < ob end
+    return a < b
+  end)
+  local rows = {}
+  for _, suit in ipairs(names) do
+    local list = groups[suit]
+    table.sort(list, function(a, b) return rank_sort_value(a.c) > rank_sort_value(b.c) end)
+    local ok, loc = pcall(localize, suit, 'suits_plural')
+    local label = ((ok and loc and loc ~= 'ERROR') and loc or suit) .. ' (' .. #list .. ')'
+    rows[#rows + 1] = labelled_cards(label, list, true, 0.42, 10)
+  end
+  if #rows == 0 then rows[1] = row({ T('No deck data yet', 0.35, G.C.UI.TEXT_INACTIVE) }) end
+
+  local whose = owner == 'me' and 'Your deck' or (c.name .. "'s deck")
+  return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.06 }, nodes = {
+    row({
+      T(whose .. '  -  ' .. deck_summary(c[owner]), 0.32, G.C.WHITE),
+      { n = G.UIT.C, config = { align = 'cm', padding = 0.05 }, nodes = {
+        UIBox_button { label = { owner == 'me' and ('Show ' .. c.name) or 'Show mine' }, button = 'mp_viewer_deck_owner',
+          colour = G.C.BLUE, minw = 2.2, minh = 0.4, scale = 0.3 },
+      } },
+    }),
+    panel(rows, G.C.L_BLACK),
+    row({ T('Every card in the deck, wherever it is right now. Hover a card to read it.', 0.26, G.C.UI.TEXT_INACTIVE) }),
+  } }
+end
+
+-- Poker hand levels side by side.
+local function hands_tab()
+  local c = V.ctx
+  local mine, theirs, order = {}, {}, {}
+  for _, h in ipairs(c.me.poker_hands or {}) do mine[h.n] = h; order[#order + 1] = h end
+  for _, h in ipairs(c.them.poker_hands or {}) do
+    theirs[h.n] = h
+    if not mine[h.n] then order[#order + 1] = h end
+  end
+  table.sort(order, function(a, b) return (a.o or 99) < (b.o or 99) end)
+  local function desc(h)
+    if not h then return '-', '-' end
+    return 'Lv ' .. tostring(h.l or 1), fmt(h.c or 0) .. ' x ' .. fmt(h.m or 0)
+  end
+  local rows = { row({ cell('Hand', 2.8, G.C.GOLD), cell('You', 1, G.C.GOLD), cell('', 1.9), cell('Played', 1, G.C.GOLD),
+    cell(c.name, 1, G.C.GOLD), cell('', 1.9), cell('Played', 1, G.C.GOLD) }) }
+  for _, h in ipairs(order) do
+    local m, t = mine[h.n], theirs[h.n]
+    local ml, mv = desc(m)
+    local tl, tv = desc(t)
+    local mlv, tlv = m and m.l or 0, t and t.l or 0
+    local cm = mlv > tlv and G.C.GREEN or G.C.WHITE
+    local ct = tlv > mlv and G.C.GREEN or G.C.WHITE
+    rows[#rows + 1] = row({ cell(hand_name(h.n), 2.8), cell(ml, 1, cm), cell(mv, 1.9, G.C.UI.TEXT_INACTIVE, 0.28),
+      cell(tostring(m and m.p or 0), 1), cell(tl, 1, ct), cell(tv, 1.9, G.C.UI.TEXT_INACTIVE, 0.28),
+      cell(tostring(t and t.p or 0), 1) }, { padding = 0.008 })
+  end
+  return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.08 }, nodes = {
+    panel(rows),
+    row({ T('Higher level in green. Chips x Mult is the base value at that level.', 0.26, G.C.UI.TEXT_INACTIVE) }),
   } }
 end
 
@@ -318,11 +438,13 @@ function V.definition()
     contents[#contents + 1] = row({ T('Updated ' .. (age <= 1 and 'just now' or (age .. 's ago')) .. '  |  TAB to close', 0.28, G.C.UI.TEXT_INACTIVE) })
     contents[#contents + 1] = create_tabs {
       tabs = {
-        { label = 'Compare', chosen = true, tab_definition_function = function() return protected(compare_tab) end },
+        { label = 'Compare', chosen = V.tab ~= 'deck', tab_definition_function = function() return protected(compare_tab) end },
         { label = 'Their cards', tab_definition_function = function() return protected(cards_tab) end },
+        { label = 'Deck', chosen = V.tab == 'deck', tab_definition_function = function() return protected(deck_tab) end },
+        { label = 'Poker hands', tab_definition_function = function() return protected(hands_tab) end },
         { label = 'History', tab_definition_function = function() return protected(history_tab) end },
       },
-      tab_h = 7.4, snap_to_nav = true,
+      tab_h = 7.6, snap_to_nav = true,
     }
   end
   return create_UIBox_generic_options { contents = contents }
@@ -341,6 +463,7 @@ function V.open()
     return
   end
   G.FUNCS.overlay_menu { definition = def }
+  V.tab = nil -- next open starts on Compare again
 end
 
 function V.toggle()
@@ -363,6 +486,13 @@ G.FUNCS.mp_viewer_target = function(args)
   local list = others()
   local p = list[args.to_key]
   if p then V.target = tostring(p.id) end
+  V.pending_open = true
+end
+
+-- Deck tab: switch between their deck and yours (reopens on the Deck tab).
+G.FUNCS.mp_viewer_deck_owner = function()
+  V.deck_owner = V.deck_owner ~= 'me' and 'me' or 'them'
+  V.tab = 'deck'
   V.pending_open = true
 end
 

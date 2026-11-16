@@ -53,11 +53,18 @@ Start with both PCs at the Balatro main menu.
 ### 2. Play a duel
 1. **PC A:** **Start Game**. Both PCs start the same run: same seed, deck and stake.
 2. Play a few blinds:
-   - **Hand sync:** play a hand on one PC. It should wait until the other PC also plays that
-     hand, and the status bar shows that it's waiting.
+   - **Free play:** play several hands quickly on one PC while the other does nothing. Nothing
+     should hold you up mid-blind.
+   - **Shop gate:** beat the blind on one PC and click **Cash Out**. It should show "Waiting for
+     <their Steam name>" until the other PC finishes the blind, then open the shop.
+   - **Next-blind gate:** leave the shop on one PC and select the next blind. It should wait
+     until the other PC also selects (or skips) that blind.
    - **Points:** after both finish a blind, both PCs show the points for the round.
-   - **Player viewer:** press **Tab** (or click the status bar) to see the other player's cards,
-     jokers, scores and history.
+   - **Names:** the lobby, status bar and viewer show each player's Steam name, not "P1".
+   - **Player viewer:** press **Tab** (or click the status bar). Check every tab: **Compare**,
+     **Their cards** (jokers, consumables, vouchers, hand, tags), **Deck** (all their cards with
+     enhancements/seals/editions; **Show mine** switches to yours), **Poker hands** (levels side
+     by side) and **History**. Hover cards to read them.
    - Skip a blind on one PC to check skipping.
 3. **Ending:** lose on purpose on one PC, by playing junk hands. The other player should win once
    they get past that blind.

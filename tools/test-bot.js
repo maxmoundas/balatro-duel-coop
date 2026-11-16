@@ -43,7 +43,7 @@ const duel = { slot: 0, hand: 0, hands: 0, best: 0 };
 
 const sock = net.connect({ host, port }, () => {
   log(`connected to ${host}:${port}`);
-  send({ type: 'hello', name: NAME });
+  send({ type: 'hello', name: NAME, protocol: 2 });
 });
 sock.setNoDelay(true);
 sock.setEncoding('utf8');
@@ -67,12 +67,25 @@ sock.on('error', (e) => { log('socket error:', e.message); process.exit(1); });
 sock.on('close', () => { log('disconnected'); process.exit(0); });
 setInterval(() => send({ type: 'ping' }), 20000); // stay under the server's idle timeout
 
-// ---- Duel: shadow the opponent's blinds and pre-arm the hand gate ----
+// ---- Duel: shadow the opponent's blinds ----
 function duelStartBlind(slot) {
   Object.assign(duel, { slot, hand: 1, hands: 0, best: 0 });
   send({ type: 'blind_start', slot });
-  send({ type: 'blind_ready', slot });
-  send({ type: 'hand_ready', slot, hand: 1 }); // released when you play your hand 1
+}
+
+// Round gates: whenever you wait at one, the bot catches up so you're released.
+const gateDone = new Set();
+function catchUp(w) {
+  const key = w.kind + ':' + w.slot;
+  if (gateDone.has(key)) return;
+  gateDone.add(key);
+  if (w.kind === 'blind') {
+    log(`you're ready for blind ${w.slot}; bot ready too`);
+    send({ type: 'blind_ready', slot: w.slot });
+  } else {
+    log(`you finished blind ${w.slot}; bot finishes it too`);
+    send({ type: 'blind_end', slot: w.slot, won: true, hands: 1, best: duel.best || 1 });
+  }
 }
 
 function handle(msg) {
@@ -104,8 +117,10 @@ function handle(msg) {
       log(`you started blind ${msg.slot}`);
       duelStartBlind(msg.slot);
       break;
-    case 'hand_go':
-      if (msg.slot === duel.slot) log(`hand ${msg.hand} synced`);
+    case 'gate_status':
+      for (const w of Object.values(msg.waiting || {})) {
+        if (String(w.id) !== myId) catchUp(w);
+      }
       break;
     case 'opp_hand': {
       if (msg.slot !== duel.slot) break;
@@ -114,7 +129,6 @@ function handle(msg) {
       duel.best = Math.max(duel.best, score);
       log(`you scored ${msg.score} on hand ${msg.hand}; bot scores ${score}`);
       send({ type: 'hand_scored', slot: duel.slot, hand: msg.hand, score });
-      send({ type: 'hand_ready', slot: duel.slot, hand: msg.hand + 1 });
       break;
     }
     case 'opp_blind': {
@@ -135,10 +149,6 @@ function handle(msg) {
 
     // Co-op
     case 'team_status':
-      if (msg.waiting && msg.waiting.length && !msg.waiting.map(String).includes(myId)) {
-        log(`you're ready for blind ${msg.slot}; bot ready too`);
-        send({ type: 'blind_ready', slot: msg.slot });
-      }
       if (msg.outOfHands && msg.outOfHands.length && !msg.outOfHands.map(String).includes(myId)) {
         log(`you're out of hands on blind ${msg.slot}; so is the bot`);
         send({ type: 'out_of_hands', slot: msg.slot });
@@ -168,7 +178,7 @@ function handle(msg) {
       log(`${msg.name} left`);
       break;
     case 'pong':
-    case 'blind_go':
+    case 'gate_go':
       break;
     default:
       log('<-', msg.type);

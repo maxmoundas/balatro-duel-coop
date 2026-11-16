@@ -172,7 +172,7 @@ MP.update_presence = update_presence
 local function on_status(status)
   if status == 'connected' then
     local steam_id = MP.steam and MP.steam.my_id and MP.steam.my_id() or nil
-    MP.send({ type = 'hello', name = MP.config.player_name ~= '' and MP.config.player_name or 'Player', steamId = steam_id })
+    MP.send({ type = 'hello', name = MP.display_name(), steamId = steam_id, protocol = MP.PROTOCOL })
   else
     if MP.pending_join or MP.pending_create then
       local t = MP.target
@@ -193,20 +193,43 @@ local function on_status(status)
   MP.UI.refresh()
 end
 
-function MP.release_all_gates()
-  local run = MP.run
-  if not run then return end
-  lock('mp_gate', false)
-  if run.hand_wait then
-    local w = run.hand_wait
-    run.hand_wait = nil
-    MP.play_hand_now(w.e)
-  end
-  if run.blind_wait then
-    local w = run.blind_wait
-    run.blind_wait = nil
+-- Round gates: cashing out (-> shop) and selecting/skipping the next blind wait until
+-- every other player still in the run has caught up. Hands are never gated.
+local function run_gate(w)
+  if w.kind == 'shop' then
+    MP.orig.cash_out(w.e)
+  elseif w.action == 'skip' then
+    MP.skip_blind_now(w.e)
+  else
     MP.begin_blind(w.e)
   end
+end
+
+function MP.release_gate(kind, slot)
+  local run = MP.run
+  local w = run and run.gate
+  if not w or (kind and (w.kind ~= kind or w.slot ~= slot)) then return end
+  run.gate = nil
+  run.gate_waiting_for = nil
+  lock('mp_gate', false)
+  run_gate(w)
+end
+
+function MP.release_all_gates()
+  if MP.run then MP.release_gate() end
+  lock('mp_gate', false)
+end
+
+-- Hold `e`'s action until the server says everyone is ready. Returns false if no gate applies.
+local function hold_at_gate(kind, slot, e, action)
+  local run = MP.run
+  if not MP.in_game() or run.disconnected or Net.status ~= 'connected' then return false end
+  if run.gate then return true end -- already waiting; ignore repeat clicks
+  run.gate = { kind = kind, slot = slot, e = e, action = action }
+  run.gate_waiting_for = nil
+  lock('mp_gate', true)
+  MP.send({ type = kind == 'shop' and 'shop_ready' or 'blind_ready', slot = slot })
+  return true
 end
 
 -- ---------------------------------------------------------------------------
@@ -253,6 +276,15 @@ end
 local handlers = {}
 
 handlers.welcome = function(m)
+  if tonumber(m.protocol) ~= MP.PROTOCOL then
+    MP.pending_join, MP.pending_create = nil, nil
+    MP.UI.creating = false
+    MP.UI.last_error = 'That game runs a different version of the mod. Everyone needs the latest version (re-run the installer).'
+    MP.toast(MP.UI.last_error, G.C.RED)
+    Net.disconnect()
+    MP.UI.refresh()
+    return
+  end
   MP.my_id = tostring(m.id)
   if MP.pending_join then
     MP.send({ type = 'join', code = MP.pending_join })
@@ -306,14 +338,17 @@ end
 
 -- Duel ------------------------------------------------------------------------
 
-handlers.hand_go = function(m)
+handlers.gate_go = function(m)
+  MP.release_gate(m.kind, tonumber(m.slot))
+end
+
+handlers.gate_status = function(m)
   local run = MP.run
-  if not run or not run.hand_wait then return end
-  if tonumber(m.slot) ~= run.hand_wait.slot or tonumber(m.hand) ~= run.hand_wait.hand then return end
-  local e = run.hand_wait.e
-  run.hand_wait = nil
-  lock('mp_gate', false)
-  MP.play_hand_now(e)
+  if not run then return end
+  run.gate_waiting_for = nil
+  for _, w in pairs(m.waiting or {}) do
+    if tostring(w.id) == MP.my_id then run.gate_waiting_for = w.waitingFor end
+  end
 end
 
 handlers.opp_hand = function(m)
@@ -359,15 +394,6 @@ handlers.player_run_end = function(m)
 end
 
 -- Co-op -----------------------------------------------------------------------
-
-handlers.blind_go = function(m)
-  local run = MP.run
-  if not run or not run.blind_wait or tonumber(m.slot) ~= run.blind_wait.slot then return end
-  local e = run.blind_wait.e
-  run.blind_wait = nil
-  lock('mp_gate', false)
-  MP.begin_blind(e)
-end
 
 handlers.team_score = function(m)
   local run = MP.run
@@ -516,22 +542,82 @@ local function edition_key(card)
   end
 end
 
+-- G.P_CARDS key ("H_K") of a playing card's current suit and rank (Strength, Sigil etc.
+-- change them after creation, so config.card_key alone can be stale).
+local function card_key_of(c)
+  local cc = c.config and c.config.card
+  if cc and SMODS and SMODS.Suits and SMODS.Ranks then
+    local su, ra = SMODS.Suits[cc.suit], SMODS.Ranks[cc.value]
+    if su and ra and su.card_key and ra.card_key then
+      local k = su.card_key .. '_' .. ra.card_key
+      if G.P_CARDS[k] then return k end
+    end
+  end
+  return c.config and c.config.card_key
+end
+
+-- Permanent upgrades on a playing card (Hiker's +chips, etc.): only the perm_* fields,
+-- the rest comes from the card's enhancement.
+local function perm_ability(c)
+  local out
+  for k, v in pairs(c.ability or {}) do
+    if type(k) == 'string' and k:sub(1, 5) == 'perm_' and type(v) == 'number' and v ~= 0 and v == v then
+      out = out or {}
+      out[k] = v
+    end
+  end
+  return out
+end
+
+local function playing_card_data(c, full_ability)
+  return {
+    c = card_key_of(c),
+    e = c.config.center and c.config.center.key or nil,
+    s = c.seal or nil,
+    ed = edition_key(c),
+    ab = full_ability and sanitize(c.ability, 3) or perm_ability(c),
+  }
+end
+
 local function cards_of(area, playing)
   local out = {}
   if not (area and area.cards) then return out end
   for _, c in ipairs(area.cards) do
     if playing and c.facing == 'back' then
       out[#out + 1] = { hidden = true } -- face-down (e.g. The House): don't reveal it
+    elseif playing then
+      out[#out + 1] = playing_card_data(c, true)
     else
       out[#out + 1] = {
-        k = not playing and c.config.center and c.config.center.key or nil,
-        c = playing and c.config.card_key or nil,
-        e = playing and c.config.center and c.config.center.key or nil,
-        s = playing and c.seal or nil,
+        k = c.config.center and c.config.center.key or nil,
         ed = edition_key(c),
         ab = sanitize(c.ability, 3),
       }
     end
+  end
+  return out
+end
+
+-- Every card the player owns (G.playing_cards), wherever it currently is.
+local function full_deck()
+  local out = {}
+  for _, c in ipairs(G.playing_cards or {}) do out[#out + 1] = playing_card_data(c, false) end
+  return out
+end
+
+local function voucher_keys()
+  local out = {}
+  for k, v in pairs(G.GAME.used_vouchers or {}) do
+    if v and G.P_CENTERS[k] then out[#out + 1] = k end
+  end
+  table.sort(out, function(a, b) return (G.P_CENTERS[a].order or 0) < (G.P_CENTERS[b].order or 0) end)
+  return out
+end
+
+local function tag_keys()
+  local out = {}
+  for _, t in ipairs(G.GAME.tags or {}) do
+    if type(t) == 'table' and t.key then out[#out + 1] = t.key end
   end
   return out
 end
@@ -554,14 +640,14 @@ end
 
 function MP.build_snapshot()
   local g, run = G.GAME, MP.run
+  -- Every poker hand that's visible in the run info screen, in its usual order.
   local hands = {}
   for name, h in pairs(g.hands or {}) do
-    if (h.played or 0) > 0 or (h.level or 1) > 1 then
-      hands[#hands + 1] = { n = name, l = h.level, p = h.played }
+    if h.visible ~= false or (h.played or 0) > 0 then
+      hands[#hands + 1] = { n = name, l = h.level, p = h.played, c = h.chips, m = h.mult, o = h.order }
     end
   end
-  table.sort(hands, function(a, b) return (a.p or 0) > (b.p or 0) end)
-  while #hands > 6 do table.remove(hands) end
+  table.sort(hands, function(a, b) return (a.o or 99) < (b.o or 99) end)
 
   local best = 0
   for _, rec in ipairs(run.history) do best = math.max(best, rec.best or 0) end
@@ -580,6 +666,10 @@ function MP.build_snapshot()
     deck_total = G.playing_cards and #G.playing_cards or 0,
     joker_slots = G.jokers and G.jokers.config.card_limit, cons_slots = G.consumeables and G.consumeables.config.card_limit,
     jokers = cards_of(G.jokers), cons = cards_of(G.consumeables), hand = cards_of(G.hand, true),
+    hand_size = G.hand and G.hand.config and G.hand.config.card_limit,
+    full_deck = full_deck(),
+    vouchers = voucher_keys(),
+    tags = tag_keys(),
     poker_hands = hands,
     best = best,
     history = run.history,
@@ -620,10 +710,12 @@ function MP.begin_blind(e)
   MP.orig.select_blind(e)
 end
 
-function MP.play_hand_now(e)
+function MP.skip_blind_now(e)
   local run = MP.run
-  if run then run.hands = run.hands + 1 end
-  MP.orig.play_cards_from_highlighted(e)
+  run.slot = run.slot + 1
+  start_record(true)
+  MP.send({ type = 'blind_skip', slot = run.slot })
+  MP.orig.skip_blind(e)
 end
 
 -- ---------------------------------------------------------------------------
@@ -634,53 +726,41 @@ MP.orig = {}
 function MP.install_hooks()
   local orig = MP.orig
 
-  -- Blind selection (coop waits for the whole team)
+  -- Starting the next blind waits until every player is ready for it (round gate).
   orig.select_blind = G.FUNCS.select_blind
   G.FUNCS.select_blind = function(e)
     local run = MP.run
-    if not MP.in_game() or run.disconnected then
-      if run then return MP.begin_blind(e) end
-      return orig.select_blind(e)
-    end
-    if run.mode == 'coop' then
-      if run.blind_wait then return end
-      run.blind_wait = { slot = run.slot + 1, e = e }
-      lock('mp_gate', true)
-      MP.send({ type = 'blind_ready', slot = run.slot + 1 })
-      return
-    end
+    if not run then return orig.select_blind(e) end
+    if hold_at_gate('blind', run.slot + 1, e, 'select') then return end
     return MP.begin_blind(e)
   end
 
   orig.skip_blind = G.FUNCS.skip_blind
   G.FUNCS.skip_blind = function(e)
     local run = MP.run
-    if MP.in_game() then
-      if run.mode == 'coop' then
-        MP.toast('Skipping blinds is disabled in Co-op', G.C.RED)
-        return
-      end
-      run.slot = run.slot + 1
-      start_record(true)
-      MP.send({ type = 'blind_skip', slot = run.slot })
+    if not MP.in_game() then return orig.skip_blind(e) end
+    if run.mode == 'coop' then
+      MP.toast('Skipping blinds is disabled in Co-op', G.C.RED)
+      return
     end
-    return orig.skip_blind(e)
+    if hold_at_gate('blind', run.slot + 1, e, 'skip') then return end
+    return MP.skip_blind_now(e)
   end
 
-  -- Playing a hand (duel: both players play hand N "together")
+  -- Going to the shop waits until every player has finished this blind (round gate).
+  orig.cash_out = G.FUNCS.cash_out
+  G.FUNCS.cash_out = function(e)
+    local run = MP.run
+    if run and hold_at_gate('shop', run.slot, e) then return end
+    return orig.cash_out(e)
+  end
+
+  -- Hands are played freely: just count them.
   orig.play_cards_from_highlighted = G.FUNCS.play_cards_from_highlighted
   G.FUNCS.play_cards_from_highlighted = function(e)
     local run = MP.run
-    if not run then return orig.play_cards_from_highlighted(e) end
-    if G.play and G.play.cards[1] then return end
-    if run.mode == 'duel' and MP.in_game() and not run.disconnected then
-      if run.hand_wait then return end
-      run.hand_wait = { slot = run.slot, hand = run.hands + 1, e = e }
-      lock('mp_gate', true)
-      MP.send({ type = 'hand_ready', slot = run.slot, hand = run.hands + 1 })
-      return
-    end
-    return MP.play_hand_now(e)
+    if run and MP.in_game() and not (G.play and G.play.cards[1]) then run.hands = run.hands + 1 end
+    return orig.play_cards_from_highlighted(e)
   end
 
   -- Scoring: hand_chips/mult are final once evaluate_play returns (events only animate)

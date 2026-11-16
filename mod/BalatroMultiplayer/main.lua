@@ -2,14 +2,15 @@
 -- Requires Steamodded (which requires Lovely).
 
 MP = MP or {}
-MP.VERSION = '0.1.0'
+MP.VERSION = '0.2.0'
+MP.PROTOCOL = 2 -- must match Relay.PROTOCOL_VERSION in src/relay.lua
 MP.mod = SMODS.current_mod
 MP.config = MP.mod.config or {}
 
 -- server_host empty = host games in-game (default); set it to use a dedicated server instead.
 -- Read the saved version BEFORE filling defaults (the defaults include the current version).
 local saved_version = tonumber(MP.config.config_version) or 1
-local defaults = { server_host = '', server_port = '8788', host_port = '8788', player_name = '', auto_connect = true, config_version = 2 }
+local defaults = { server_host = '', server_port = '8788', host_port = '8788', player_name = '', auto_connect = true, config_version = 3 }
 for k, v in pairs(defaults) do
   if MP.config[k] == nil then MP.config[k] = v end
 end
@@ -17,7 +18,12 @@ end
 if saved_version < 2 then
   local h = tostring(MP.config.server_host or '')
   if h == '127.0.0.1' or h == 'localhost' then MP.config.server_host = '' end
-  MP.config.config_version = 2
+end
+-- v2 could save the Balatro profile name ("P1", "P2", ...) when Steam wasn't ready yet.
+-- An empty name means "use my Steam name", resolved when connecting.
+if saved_version < 3 then
+  if tostring(MP.config.player_name or ''):match('^P%d+$') then MP.config.player_name = '' end
+  MP.config.config_version = 3
 end
 MP.config.server_port = tostring(MP.config.server_port)
 MP.config.host_port = tostring(MP.config.host_port)
@@ -37,17 +43,19 @@ load('src/viewer.lua')
 load('src/host.lua')
 load('src/p2p.lua')
 
-if saved_version < 2 then pcall(SMODS.save_mod_config, MP.mod) end -- persist the migration
+if saved_version < 3 then pcall(SMODS.save_mod_config, MP.mod) end -- persist the migration
 
 MP.install_hooks()
 MP.UI.install_hooks()
 MP.UI.install_picker_hooks()
 
-if MP.config.player_name == '' then
-  local name = MP.steam.my_name and select(2, pcall(MP.steam.my_name))
-  if type(name) ~= 'string' or name == '' then
-    local ok, pname = pcall(function() return G.PROFILES[G.SETTINGS.profile].name end)
-    name = (ok and pname and pname ~= '') and pname or ('Player' .. math.random(100, 999))
-  end
-  MP.config.player_name = name:sub(1, 16)
+-- The name other players see: a custom name from Advanced, otherwise the Steam name.
+-- Resolved on demand because Steam may not be ready yet when the mod loads.
+function MP.display_name()
+  local custom = tostring(MP.config.player_name or ''):gsub('^%s+', ''):gsub('%s+$', '')
+  if custom ~= '' then return custom:sub(1, 20) end
+  local ok, name = pcall(function() return MP.steam.my_name() end)
+  if ok and type(name) == 'string' and name ~= '' then return name:sub(1, 20) end
+  MP.fallback_name = MP.fallback_name or ('Player' .. math.random(100, 999))
+  return MP.fallback_name
 end

@@ -11,7 +11,7 @@ UI.MODE_INFO = {
     title = 'DUEL', sub = '1 vs 1', colour = G.C.RED,
     lines = {
       'Same seed, same deck, head to head.',
-      'Hands are played in lockstep.',
+      'Play at your own pace; rounds stay in sync.',
       'Each blind: +1 point for the best hand,',
       '+1 for beating it in the fewest hands.',
       'Outlast your rival - or outscore them.',
@@ -191,7 +191,7 @@ function UI.definition()
   nodes[#nodes + 1] = text_row('MULTIPLAYER', 0.7, G.C.GOLD)
 
   if not MP.lobby then
-    nodes[#nodes + 1] = text_row('Playing as ' .. tostring(cfg.player_name), 0.32, G.C.UI.TEXT_INACTIVE)
+    nodes[#nodes + 1] = text_row('Playing as ' .. MP.display_name(), 0.32, G.C.UI.TEXT_INACTIVE)
     local inv = MP.pending_invite
     if inv then
       nodes[#nodes + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.1, r = 0.1, colour = G.C.GOLD, emboss = 0.05 }, nodes = {
@@ -297,6 +297,7 @@ function UI.advanced_definition()
   cfg.server_port = tostring(cfg.server_port or '8788')
   local nodes = { text_row('ADVANCED', 0.6, G.C.GOLD) }
   nodes[#nodes + 1] = input_row('Name', cfg, 'player_name', 16, false, 'mp_name')
+  nodes[#nodes + 1] = text_row('Leave the name empty to use your Steam name', 0.3, G.C.UI.TEXT_INACTIVE)
   nodes[#nodes + 1] = text_row('Dedicated server (optional). Leave empty to host games yourself.', 0.3, G.C.UI.TEXT_INACTIVE)
   nodes[#nodes + 1] = input_row('Server', cfg, 'server_host', 40, false, 'mp_host')
   nodes[#nodes + 1] = input_row('Port', cfg, 'server_port', 5, false, 'mp_port')
@@ -833,10 +834,16 @@ function UI.draw_hud()
 
     -- Waiting states
     if not run.finished then
-      if run.hand_wait then
-        banner({ { text = 'Waiting for opponent to play hand ' .. run.hand_wait.hand .. '...', scale = 1.1 } }, H * 0.42)
-      elseif run.blind_wait then
-        banner({ { text = 'Waiting for teammates to choose the blind...', scale = 1.1 } }, H * 0.42)
+      if run.gate then
+        local who = run.gate_waiting_for
+        who = (type(who) == 'table' and #who > 0) and table.concat(who, ', ')
+          or (run.mode == 'duel' and 'your opponent' or 'your teammates')
+        banner({
+          { text = 'Waiting for ' .. who, scale = 1.1 },
+          { text = run.gate.kind == 'shop' and 'to finish the blind before the shop opens...'
+            or 'to be ready for the next blind...', scale = 0.8 },
+          { text = 'TAB: view players', scale = 0.6, colour = G.C.UI.TEXT_INACTIVE },
+        }, H * 0.42)
       elseif run.coop_waiting and run.coop_waiting == run.slot then
         banner({
           { text = 'Out of hands', scale = 1.3, colour = G.C.RED },

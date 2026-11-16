@@ -1,4 +1,11 @@
--- Balatro Multiplayer relay: lobbies, hand/blind gates, Duel points, win rules, invites.
+-- Balatro Multiplayer relay: lobbies, round gates, Duel points, win rules, invites.
+--
+-- Hands are never gated: everyone plays at their own pace. Two "round gates" keep the
+-- players together between blinds:
+--   * shop gate  (shop_ready slot S): cashing out after blind S waits until every other
+--                 player still in the run has finished blind S.
+--   * blind gate (blind_ready slot S): selecting or skipping blind S waits until every
+--                 other player still in the run is also ready for blind S (or past it).
 --
 -- Single source of truth for the multiplayer rules. Transport-agnostic, and runs in two places:
 --   * inside the game when a player hosts (LÖVE thread + luasocket, LuaJIT / Lua 5.1)
@@ -13,7 +20,7 @@
 
 local Relay = {}
 Relay.__index = Relay
-Relay.PROTOCOL_VERSION = 1
+Relay.PROTOCOL_VERSION = 2
 
 local MAX_PLAYERS = { duel = 2, coop = 4 }
 local SEED_CHARS = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789'
@@ -63,6 +70,7 @@ function Lobby.new(code, host, opts)
   local seed = type(opts.seed) == 'string' and opts.seed:upper() or nil
   self.seed = (seed and seed:match('^[A-Z1-9]+$') and #seed <= 8) and seed or rand_string(SEED_CHARS, 8)
   self.min_players = opts.min_players or 2
+  self.json = opts.json
   self.players = {}
   self.started = false
   self.finished = false
@@ -122,8 +130,7 @@ function Lobby:start(player)
       end_slot = nil,
       max_slot = 0,       -- highest slot this player has started
       results = {},       -- slot -> { won, hands, best, skipped }
-      hand_ready = nil,   -- { slot, hand } while waiting at the duel hand gate
-      blind_ready = 0,    -- slot this player is waiting to start (coop gate)
+      wait = nil,         -- { kind = 'shop' | 'blind', slot } while held at a round gate
       out_of_hands = {},  -- slot -> true
       points = 0,
       last_hand = nil,
@@ -131,6 +138,7 @@ function Lobby:start(player)
   end
   self.scored_slots = {}
   self.coop_slots = {}
+  self.last_gate_status = self.json and self.json.encode({}) or '0' -- nobody waiting yet
   self:broadcast({
     type = 'start', mode = self.mode, seed = self.seed, deck = self.deck, stake = self.stake,
     playerCount = #self.players, players = self:player_list(),
@@ -160,11 +168,8 @@ function Lobby:handle(player, msg)
       if opp then opp:send({ type = 'opp_blind_start', slot = slot }) end
       self:check_duel_outcome()
     end
-  elseif t == 'blind_ready' then self:on_blind_ready(player, slot)
-  elseif t == 'hand_ready' then
-    local hand = int(msg.hand, 0)
-    if hand == 0 then hand = 1 end
-    self:on_hand_ready(player, slot, hand)
+  elseif t == 'blind_ready' then player.game.wait = { kind = 'blind', slot = slot }
+  elseif t == 'shop_ready' then player.game.wait = { kind = 'shop', slot = slot }
   elseif t == 'hand_scored' then self:on_hand_scored(player, slot, int(msg.hand, 0), math.max(0, int(msg.score, 0)))
   elseif t == 'blind_end' then
     self:on_blind_end(player, slot, { won = msg.won == true, hands = int(msg.hands, 0), best = int(msg.best, 0), skipped = false })
@@ -173,6 +178,7 @@ function Lobby:handle(player, msg)
   elseif t == 'run_over' then self:on_run_end(player, 'lost', slot)
   elseif t == 'run_won' then self:on_run_end(player, 'won', slot)
   end
+  self:update_gates()
 end
 
 function Lobby:remove(player)
@@ -192,46 +198,52 @@ function Lobby:remove(player)
     if other then self:finish({ winnerId = other.id, reason = 'opponent_left' }) end
   else
     if #self.players == 0 then self.finished = true return end
-    self:release_coop_blind_gates()
     for s in pairs(self.coop_slots) do self:check_coop_failure(s) end
+  end
+  self:update_gates()
+end
+
+-- ---- round gates ---------------------------------------------------------------
+
+-- Is `other` holding up `w` (a gate some player is waiting at)?
+local function blocks(other, w)
+  local g = other.game
+  if not g or g.status ~= 'alive' then return false end
+  if w.kind == 'shop' then
+    return g.results[w.slot] == nil and g.max_slot <= w.slot
+  end
+  return g.max_slot < w.slot -- blind gate: other hasn't reached blind w.slot yet
+end
+
+-- Release every player whose gate is clear, and tell everyone who is waiting on whom.
+function Lobby:update_gates()
+  if not self.started then return end
+  local status = {}
+  for _, p in ipairs(self.players) do
+    local w = p.game and p.game.wait
+    if w then
+      local blockers = {}
+      if p.game.status == 'alive' and not self.finished then
+        for _, o in ipairs(self.players) do
+          if o ~= p and blocks(o, w) then blockers[#blockers + 1] = o.name end
+        end
+      end
+      if #blockers == 0 then
+        p.game.wait = nil
+        p:send({ type = 'gate_go', kind = w.kind, slot = w.slot })
+      else
+        status[#status + 1] = { id = p.id, kind = w.kind, slot = w.slot, waitingFor = blockers }
+      end
+    end
+  end
+  local encoded = self.json and self.json.encode(status) or tostring(#status)
+  if encoded ~= self.last_gate_status then
+    self.last_gate_status = encoded
+    self:broadcast({ type = 'gate_status', waiting = status })
   end
 end
 
 -- ---- duel --------------------------------------------------------------------
-
--- An opponent "is past" a slot if it no longer makes sense to wait for them there.
-function Lobby:duel_past(opp, slot)
-  local g = opp.game
-  if not g or g.status ~= 'alive' then return true end
-  return g.results[slot] ~= nil or g.max_slot > slot
-end
-
-function Lobby:on_hand_ready(player, slot, hand)
-  if self.mode ~= 'duel' then return end
-  player.game.hand_ready = { slot = slot, hand = hand }
-  self:try_release_hand(player)
-  local opp = self:opponent(player)
-  if opp then self:try_release_hand(opp) end
-end
-
-function Lobby:try_release_hand(player)
-  local r = player.game.hand_ready
-  if not r then return end
-  local opp = self:opponent(player)
-  local og = opp and opp.game
-  local function release(p)
-    local pr = p.game.hand_ready
-    p.game.hand_ready = nil
-    p:send({ type = 'hand_go', slot = pr.slot, hand = pr.hand })
-  end
-  if og and og.hand_ready and og.hand_ready.slot == r.slot and og.hand_ready.hand == r.hand then
-    release(player)
-    release(opp)
-    return
-  end
-  local opp_already_played = og and og.last_hand and og.last_hand.slot == r.slot and og.last_hand.hand >= r.hand
-  if not opp or opp_already_played or self:duel_past(opp, r.slot) then release(player) end
-end
 
 function Lobby:on_hand_scored(player, slot, hand, score)
   player.game.last_hand = { slot = slot, hand = hand, score = score }
@@ -239,7 +251,6 @@ function Lobby:on_hand_scored(player, slot, hand, score)
     local opp = self:opponent(player)
     if opp then
       opp:send({ type = 'opp_hand', slot = slot, hand = hand, score = score })
-      self:try_release_hand(opp)
     end
   else
     local s = self:coop_slot(slot)
@@ -251,12 +262,10 @@ end
 function Lobby:on_blind_end(player, slot, result)
   local g = player.game
   g.results[slot] = result
-  g.hand_ready = nil
   if self.mode == 'duel' then
     local opp = self:opponent(player)
     if opp then
       opp:send({ type = 'opp_blind', slot = slot, won = result.won, hands = result.hands, best = result.best, skipped = result.skipped })
-      self:try_release_hand(opp)
     end
     self:score_duel_slots()
     self:check_duel_outcome()
@@ -355,33 +364,6 @@ local function ids_where(players, pred)
   return t
 end
 
-function Lobby:on_blind_ready(player, slot)
-  if self.mode ~= 'coop' then
-    player:send({ type = 'blind_go', slot = slot })
-    return
-  end
-  player.game.blind_ready = slot
-  self:broadcast({ type = 'team_status', slot = slot,
-    waiting = ids_where(self.players, function(p) return p.game.blind_ready == slot end) })
-  self:release_coop_blind_gates()
-end
-
-function Lobby:release_coop_blind_gates()
-  local alive = self:alive_players()
-  local slots = {}
-  for _, p in ipairs(alive) do
-    if p.game.blind_ready and p.game.blind_ready ~= 0 then slots[p.game.blind_ready] = true end
-  end
-  for slot in pairs(slots) do
-    local all = true
-    for _, p in ipairs(alive) do if p.game.blind_ready ~= slot then all = false end end
-    if all then
-      for _, p in ipairs(alive) do p.game.blind_ready = 0 end
-      self:broadcast({ type = 'blind_go', slot = slot })
-    end
-  end
-end
-
 function Lobby:on_out_of_hands(player, slot)
   if self.mode ~= 'coop' then return end
   player.game.out_of_hands[slot] = true
@@ -412,19 +394,13 @@ function Lobby:on_run_end(player, status, slot)
   self:broadcast({ type = 'player_run_end', id = player.id, status = status, slot = g.end_slot }, player)
 
   if self.mode == 'duel' then
-    local opp = self:opponent(player)
-    if opp then self:try_release_hand(opp) end
     self:check_duel_outcome()
   elseif status == 'lost' then
     self:finish({ result = 'lost', reason = 'team_failed' })
   else
     local all_won = true
     for _, p in ipairs(self.players) do if p.game.status ~= 'won' then all_won = false end end
-    if all_won then
-      self:finish({ result = 'won', reason = 'final_boss_beaten' })
-    else
-      self:release_coop_blind_gates()
-    end
+    if all_won then self:finish({ result = 'won', reason = 'final_boss_beaten' }) end
   end
 end
 
@@ -492,13 +468,17 @@ function Relay:dispatch(player, msg)
     player.name = tostring(msg.name or 'Player'):sub(1, 20)
     local sid = tostring(msg.steamId or '')
     player.steam_id = (sid:match('^%d+$') and #sid >= 5 and #sid <= 20) and sid or nil
+    player.protocol = tonumber(msg.protocol) or 1
     return player:send({ type = 'welcome', id = player.id, protocol = Relay.PROTOCOL_VERSION })
+  end
+  if (t == 'create' or t == 'join') and player.protocol ~= Relay.PROTOCOL_VERSION then
+    fail('different mod version - everyone needs the latest Balatro Multiplayer (re-run the installer)')
   end
   if t == 'create' then
     self:leave_lobby(player)
     local code = self:new_code()
     local lobby = Lobby.new(code, player, {
-      mode = msg.mode, deck = msg.deck, stake = msg.stake, seed = msg.seed, min_players = self.min_players,
+      mode = msg.mode, deck = msg.deck, stake = msg.stake, seed = msg.seed, min_players = self.min_players, json = self.json,
     })
     self.lobbies[code] = lobby
     self.log('lobby ' .. code .. ' created (' .. lobby.mode .. ') by ' .. player.name)

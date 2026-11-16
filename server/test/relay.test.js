@@ -27,7 +27,7 @@ function harness(opts = {}) {
       };
       clients.set(cid, c);
       host.connect(cid);
-      c.send({ type: 'hello', name, steamId });
+      c.send({ type: 'hello', name, steamId, protocol: 2 });
       c.id = c.last('welcome').id;
       return c;
     },
@@ -55,7 +55,6 @@ const coop = (n) => lobbyOf('coop', n);
 function playBlind(ev, p, slot, scores, won) {
   ev(p, { type: 'blind_start', slot });
   scores.forEach((s, i) => {
-    ev(p, { type: 'hand_ready', slot, hand: i + 1 });
     ev(p, { type: 'hand_scored', slot, hand: i + 1, score: s });
   });
   ev(p, { type: 'blind_end', slot, won, hands: scores.length, best: Math.max(...scores) });
@@ -69,40 +68,45 @@ test('ids are plain strings and start broadcasts the same seed to every player',
   assert.match(a.last('start').seed, /^[A-Z1-9]{8}$/);
 });
 
-test('duel hand gate: first player waits, both released when second is ready', () => {
+test('hands are never gated: both players play freely', () => {
   const { a, b, ev } = duel();
-  ev(a, { type: 'hand_ready', slot: 1, hand: 1 });
-  assert.strictEqual(a.all('hand_go').length, 0);
-  ev(b, { type: 'hand_ready', slot: 1, hand: 1 });
-  assert.strictEqual(a.all('hand_go').length, 1);
-  assert.strictEqual(b.all('hand_go').length, 1);
+  ev(a, { type: 'blind_start', slot: 1 });
+  ev(a, { type: 'hand_scored', slot: 1, hand: 1, score: 100 });
+  ev(a, { type: 'hand_scored', slot: 1, hand: 2, score: 100 });
+  assert.strictEqual(b.all('opp_hand').length, 2);
+  assert.strictEqual(a.all('gate_status').length, 0);
 });
 
-test('duel hand gate releases when opponent already finished the blind', () => {
+test('shop gate: cashing out waits until the other player finishes the blind', () => {
   const { a, b, ev } = duel();
-  for (let h = 1; h <= 2; h++) {
-    ev(a, { type: 'hand_ready', slot: 1, hand: h });
-    ev(b, { type: 'hand_ready', slot: 1, hand: h });
-    ev(a, { type: 'hand_scored', slot: 1, hand: h, score: 100 });
-    ev(b, { type: 'hand_scored', slot: 1, hand: h, score: 200 });
-  }
-  ev(b, { type: 'blind_end', slot: 1, won: true, hands: 2, best: 200 });
-  ev(a, { type: 'hand_ready', slot: 1, hand: 3 });
-  assert.deepStrictEqual(a.last('hand_go'), { type: 'hand_go', slot: 1, hand: 3 });
+  playBlind(ev, a, 1, [500], true);
+  ev(a, { type: 'shop_ready', slot: 1 });
+  assert.strictEqual(a.all('gate_go').length, 0);
+  assert.deepStrictEqual(a.last('gate_status').waiting, [{ id: '1', kind: 'shop', slot: 1, waitingFor: ['P2'] }]);
+  playBlind(ev, b, 1, [50, 50], true);
+  assert.deepStrictEqual(a.last('gate_go'), { type: 'gate_go', kind: 'shop', slot: 1 });
+  ev(b, { type: 'shop_ready', slot: 1 });
+  assert.strictEqual(b.all('gate_go').length, 1, 'other player already done: no wait');
+  assert.strictEqual(Object.keys(a.last('gate_status').waiting).length, 0);
 });
 
-test('duel hand gate holds across blinds until opponent reaches the next blind', () => {
+test('blind gate: next blind waits until everyone is ready for it', () => {
   const { a, b, ev } = duel();
-  ev(a, { type: 'blind_end', slot: 1, won: true, hands: 1, best: 500 });
-  ev(b, { type: 'hand_ready', slot: 1, hand: 1 });
-  assert.strictEqual(b.all('hand_go').length, 1);
-  ev(a, { type: 'hand_ready', slot: 2, hand: 1 });
-  assert.strictEqual(a.all('hand_go').length, 0);
-  ev(b, { type: 'hand_scored', slot: 1, hand: 1, score: 50 });
-  ev(b, { type: 'blind_end', slot: 1, won: true, hands: 1, best: 50 });
-  assert.strictEqual(a.all('hand_go').length, 0, 'still waits for b at slot 2');
-  ev(b, { type: 'hand_ready', slot: 2, hand: 1 });
-  assert.strictEqual(a.all('hand_go').length, 1);
+  playBlind(ev, a, 1, [500], true);
+  playBlind(ev, b, 1, [500], true);
+  ev(a, { type: 'blind_ready', slot: 2 });
+  assert.strictEqual(a.all('gate_go').length, 0, 'b still shopping');
+  ev(b, { type: 'blind_ready', slot: 2 });
+  assert.strictEqual(a.all('gate_go').length, 1);
+  assert.strictEqual(b.all('gate_go').length, 1);
+});
+
+test('gates ignore players whose run is over', () => {
+  const { a, b, ev } = duel();
+  playBlind(ev, a, 1, [500], true);
+  ev(a, { type: 'shop_ready', slot: 1 });
+  ev(b, { type: 'run_over', slot: 1 });
+  assert.strictEqual(a.all('gate_go').length, 1);
 });
 
 test('duel points: best hand and fewest hands, ties award both', () => {
@@ -191,9 +195,9 @@ test('coop: blind gate waits for everyone', () => {
   const { ps, ev } = coop(3);
   ev(ps[0], { type: 'blind_ready', slot: 1 });
   ev(ps[1], { type: 'blind_ready', slot: 1 });
-  assert.strictEqual(ps[0].all('blind_go').length, 0);
+  assert.strictEqual(ps[0].all('gate_go').length, 0);
   ev(ps[2], { type: 'blind_ready', slot: 1 });
-  ps.forEach(p => assert.strictEqual(p.all('blind_go').length, 1));
+  ps.forEach(p => assert.strictEqual(p.all('gate_go').length, 1));
 });
 
 test('coop: scores relayed to teammates with running total', () => {
@@ -226,7 +230,7 @@ test('coop: leaver no longer blocks gates', () => {
   ev(ps[0], { type: 'blind_ready', slot: 1 });
   ev(ps[1], { type: 'blind_ready', slot: 1 });
   ps[2].close();
-  assert.strictEqual(ps[0].all('blind_go').length, 1);
+  assert.strictEqual(ps[0].all('gate_go').length, 1);
 });
 
 test('coop: any run loss ends the game for the team; all wins -> team win', () => {
@@ -313,6 +317,18 @@ test('Steam invite is pushed to a connected friend', () => {
   assert.strictEqual(host.last('invite_result').delivered, false);
 });
 
+test('clients on an older mod version cannot create or join', () => {
+  const h = harness();
+  const host = h.client('Host');
+  host.send({ type: 'create', mode: 'duel' });
+  const code = host.last('lobby').code;
+  const old = h.client('Old');
+  old.send({ type: 'hello', name: 'Old' }); // v0.1 clients send no protocol
+  old.send({ type: 'join', code });
+  assert.match(old.last('error').msg, /different mod version/);
+  assert.strictEqual(host.last('lobby').players.length, 1);
+});
+
 test('bad input is rejected without crashing', () => {
   const h = harness();
   const p = h.client('A');
@@ -349,8 +365,8 @@ test('TCP end-to-end: create, join, start, disconnect', async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
   const a = await tcpClient(port), b = await tcpClient(port);
-  a.sendj({ type: 'hello', name: 'Alice' });
-  b.sendj({ type: 'hello', name: 'Bob' });
+  a.sendj({ type: 'hello', name: 'Alice', protocol: 2 });
+  b.sendj({ type: 'hello', name: 'Bob', protocol: 2 });
   a.sendj({ type: 'create', mode: 'duel', deck: 'b_blue', stake: 2 });
   const lobby = await a.waitFor('lobby');
   b.sendj({ type: 'join', code: lobby.code });
