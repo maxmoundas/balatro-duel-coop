@@ -10,8 +10,8 @@ $stage = Join-Path $dist 'BalatroMultiplayer-Setup'
 if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 New-Item -ItemType Directory -Force $stage | Out-Null
 
-Copy-Item (Join-Path $root 'installer\Install.bat') $stage
-Copy-Item (Join-Path $root 'installer\install.ps1') $stage
+# Install.bat, Uninstall.bat and the scripts they run.
+Copy-Item (Join-Path $root 'installer\*') $stage
 Copy-Item -Recurse (Join-Path $root 'mod\BalatroMultiplayer') (Join-Path $stage 'BalatroMultiplayer')
 
 if ($Server) {
@@ -30,6 +30,10 @@ BALATRO MULTIPLAYER - SETUP
 2. Close Balatro.
 3. Double-click Install.bat (if Windows warns you, click "More info" > "Run anyway").
 4. Launch Balatro from Steam and click MULTIPLAYER on the main menu.
+
+To uninstall: close Balatro and double-click Uninstall.bat. It removes this mod, then asks
+whether to also remove Lovely and Steamodded (keep them if you use other mods).
+Your Balatro saves are never touched.
 "@ | Set-Content -Path (Join-Path $stage 'README.txt') -Encoding ascii
 
 $zip = Join-Path $dist 'BalatroMultiplayer-Setup.zip'

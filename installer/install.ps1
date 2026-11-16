@@ -10,27 +10,7 @@ $ProgressPreference = 'SilentlyContinue'
 $LovelyUrl = 'https://github.com/ethangreen-dev/lovely-injector/releases/download/v0.10.0/lovely-x86_64-pc-windows-msvc.zip'
 $SmodsUrl  = 'https://github.com/Steamodded/smods/archive/refs/tags/26.1002.0.zip'
 
-function Step($msg) { Write-Host ''; Write-Host "==> $msg" -ForegroundColor Cyan }
-function Done($msg) { Write-Host "    $msg" -ForegroundColor Green }
-
-function Find-BalatroDir {
-  $candidates = @()
-  try {
-    $steam = (Get-ItemProperty 'HKCU:\Software\Valve\Steam' -ErrorAction Stop).SteamPath
-    if ($steam) {
-      $candidates += (Join-Path $steam 'steamapps\common\Balatro')
-      $vdf = Join-Path $steam 'steamapps\libraryfolders.vdf'
-      if (Test-Path $vdf) {
-        foreach ($m in [regex]::Matches((Get-Content $vdf -Raw), '"path"\s+"([^"]+)"')) {
-          $candidates += (Join-Path ($m.Groups[1].Value -replace '\\\\', '\') 'steamapps\common\Balatro')
-        }
-      }
-    }
-  } catch {}
-  $candidates += 'C:\Program Files (x86)\Steam\steamapps\common\Balatro'
-  foreach ($c in $candidates) { if (Test-Path (Join-Path $c 'Balatro.exe')) { return $c } }
-  return $null
-}
+. (Join-Path $PSScriptRoot 'common.ps1')
 
 function Download-Extract($url, $name) {
   $tmp = Join-Path $env:TEMP ("bmp-" + [guid]::NewGuid().ToString('N'))
@@ -45,17 +25,10 @@ function Download-Extract($url, $name) {
 try {
   Write-Host 'Balatro Multiplayer installer' -ForegroundColor Yellow
 
-  if (Get-Process -Name 'Balatro' -ErrorAction SilentlyContinue) {
-    Write-Host 'Balatro is running. Please close it, then press Enter.' -ForegroundColor Yellow
-    Read-Host | Out-Null
-  }
+  Wait-BalatroClosed
 
   Step 'Finding Balatro'
-  $game = Find-BalatroDir
-  while (-not $game) {
-    $p = Read-Host 'Could not find Balatro. Paste the Balatro game folder (Steam > Balatro > Manage > Browse local files)'
-    if (Test-Path (Join-Path $p 'Balatro.exe')) { $game = $p } else { Write-Host 'Balatro.exe not found there.' -ForegroundColor Red }
-  }
+  $game = Get-BalatroDir
   Done $game
 
   Step 'Lovely (mod loader)'
@@ -73,7 +46,7 @@ try {
     Done 'installed'
   }
 
-  $mods = Join-Path $env:APPDATA 'Balatro\Mods'
+  $mods = $ModsDir
   New-Item -ItemType Directory -Force $mods | Out-Null
 
   Step 'Steamodded (mod framework)'

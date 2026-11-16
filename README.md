@@ -41,6 +41,16 @@ When a new version comes out, **every player must update**, because mismatched v
 work together. Download the zip again from the same link, extract it, and run `Install.bat`
 again. It replaces the old version of the mod and leaves Lovely and Steamodded as they are.
 
+### Uninstalling
+1. Close Balatro.
+2. Double-click **`Uninstall.bat`** in the folder you extracted. If you deleted that folder,
+   download and extract the zip again.
+3. It removes this mod and its settings, then asks whether to also remove **Lovely and
+   Steamodded**. Answer **N** (the default) if you use any other mods, because they need them.
+   Answer **Y** to make Balatro completely unmodded again.
+
+Your Balatro save files are never touched.
+
 ### Play with a friend
 1. **Host:** MULTIPLAYER → **Duel** or **Co-op** → choose a deck and stake → **Play**.
 2. **Host:** **Invite Steam Friends** → **Invite** next to your friend.
