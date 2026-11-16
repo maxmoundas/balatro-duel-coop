@@ -1,0 +1,55 @@
+# Builds the friend installer (dist\BalatroMultiplayer-Setup.zip) on every push to main and
+# publishes it to a rolling "latest" GitHub Release, so this link always has the newest build:
+#   https://github.com/<owner>/<repo>/releases/latest/download/BalatroMultiplayer-Setup.zip
+name: Build installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mod/**'
+      - 'installer/**'
+      - 'tools/build-friend-package.ps1'
+      - '.github/workflows/installer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: installer-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build installer zip
+        shell: pwsh
+        run: ./tools/build-friend-package.ps1
+
+      - name: Publish to the "latest" release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          short=$(git rev-parse --short HEAD)
+          notes="Built from commit ${short} on $(date -u +'%Y-%m-%d %H:%M UTC').
+
+          **To install:** download BalatroMultiplayer-Setup.zip below, unzip it, close Balatro, and double-click Install.bat.
+          You need Balatro on Steam (Windows), launched at least once."
+
+          # Move the tag to this commit.
+          git tag -f latest
+          git push -f origin refs/tags/latest
+
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest dist/BalatroMultiplayer-Setup.zip --clobber
+            gh release edit latest --title "Latest build (${short})" --notes "$notes" --latest
+          else
+            gh release create latest dist/BalatroMultiplayer-Setup.zip \
+              --title "Latest build (${short})" --notes "$notes" --latest
+          fi

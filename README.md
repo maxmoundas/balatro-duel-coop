@@ -4,6 +4,66 @@ A Balatro mod (Steamodded). Any player can host from inside the game, and Steam 
 through Steam itself: no server, port forwarding, tunnel or website. Each player runs their own
 copy of Balatro, so everything plays exactly like the real game.
 
+## Quick start
+
+### What you need
+- **Balatro on Steam, on a Windows PC.** Every player needs their own copy, because Steam Family
+  Sharing doesn't let two accounts play the same copy at once.
+- **To be Steam friends with whoever is hosting.** Add each other under Steam → Friends → Add a
+  Friend.
+- **Your Steam status set to Online**, not Invisible or Offline. Invites and joining go through
+  Steam's friend status.
+- **Balatro launched at least once**, all the way to the main menu, so its save folder exists.
+
+### Install
+1. **Download the installer:**
+   **[BalatroMultiplayer-Setup.zip](https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/BalatroMultiplayer-Setup.zip)**
+   (this link always gives you the latest version).
+   - You don't need the green **Code** button or the rest of this repo. The zip has everything.
+2. **Unzip it:** right-click the zip → **Extract All** → **Extract**. Running `Install.bat`
+   from inside the zip without extracting it won't work.
+3. **Close Balatro** if it's open.
+4. **Double-click `Install.bat`** in the extracted folder.
+   - If Windows says "Windows protected your PC", click **More info** → **Run anyway**.
+   - A window opens and installs three things: **Lovely** (the mod loader), **Steamodded** (the
+     mod framework) and this mod. Anything already installed is skipped.
+   - When it says **All done!**, press Enter to close it.
+   - If it says it can't write to the game folder, right-click `Install.bat` →
+     **Run as administrator**.
+   - If it can't find Balatro, it asks for the game folder. To find it, go to Steam → right-click
+     Balatro → Manage → Browse local files, then copy the address bar and paste it in.
+5. **Launch Balatro from Steam.** The first launch with mods can take a little longer.
+   A **MULTIPLAYER** button appears on the main menu. If it doesn't, press **F8** on the main
+   menu.
+
+### Updating
+When a new version comes out, **every player must update**, because mismatched versions may not
+work together. Download the zip again from the same link, extract it, and run `Install.bat`
+again. It replaces the old version of the mod and leaves Lovely and Steamodded as they are.
+
+### Play with a friend
+1. **Host:** MULTIPLAYER → **Duel** or **Co-op** → choose a deck and stake → **Play**.
+2. **Host:** **Invite Steam Friends** → **Invite** next to your friend.
+3. **Friend:** what happens next depends on whether Balatro is open.
+   - **Balatro is open:** an invite banner appears in the MULTIPLAYER menu. Click **Join**.
+   - **Balatro is closed:** accept the invite in Steam chat. Balatro launches and joins the
+     lobby by itself.
+   - **No invite shows up:** the host clicks **Copy invite code** and sends it to the friend
+     (on Discord, for example). The friend opens MULTIPLAYER, clicks **Paste**, then **Join**.
+4. **Host:** once everyone is in the lobby, click **Start Game**.
+
+In game: **F7** toggles the multiplayer status bar. **Tab** (or clicking the status bar) shows
+the other players' cards, jokers and scores.
+
+### If something goes wrong
+- **"Their game didn't answer through Steam":** check that you're Steam friends, that both of you
+  show as Online, and that the host's lobby is still open. Then try again.
+- **The MULTIPLAYER button is missing:** run `Install.bat` again. If Balatro shows a Lovely or
+  Steamodded error when it starts, take a screenshot and send it to the host.
+- **Something else:** send the newest log file from `%APPDATA%\Balatro\Mods\lovely\log\`. Paste
+  that path into the File Explorer address bar to open the folder.
+- **Other mods:** turn off mods that change scoring, like Talisman. They aren't supported yet.
+
 ## Modes
 
 ### Duel (1v1)
@@ -35,7 +95,9 @@ copy of Balatro, so everything plays exactly like the real game.
 - All players have to select the blind before it starts. Skipping is disabled.
 - The team wins when everyone beats the Ante 8 boss. Any player's run ending ends it for the team.
 
-## Setup (players)
+## Manual install (instead of the installer)
+
+Use this only if `Install.bat` doesn't work for you. Otherwise, follow [Quick start](#quick-start).
 
 1. Install **Lovely**: download `lovely-x86_64-pc-windows-msvc.zip` from
    https://github.com/ethangreen-dev/lovely-injector/releases and put `winmm.dll` (older releases: `version.dll`) in the Balatro
@@ -43,13 +105,11 @@ copy of Balatro, so everything plays exactly like the real game.
 2. Install **Steamodded**: download the latest release from
    https://github.com/Steamodded/smods/releases and extract it into `%APPDATA%\Balatro\Mods\`.
    You should end up with `Mods\smods-*\`.
-3. Install this mod: run `.\install-mod.ps1`, or copy `mod\BalatroMultiplayer` into
-   `%APPDATA%\Balatro\Mods\`.
+3. Install this mod: copy the `BalatroMultiplayer` folder into `%APPDATA%\Balatro\Mods\`. It's
+   inside the installer zip, or in `mod\` in this repo. From a clone of the repo, you can run
+   `.\install-mod.ps1` instead.
 4. Launch Balatro. A **MULTIPLAYER** button appears next to Play on the main menu. If it doesn't,
    press **F8** on the main menu.
-
-In game: **F7** toggles the multiplayer status bar. **Tab** (or clicking the status bar) opens
-the player viewer.
 
 ## Hosting a game (any player, nothing extra to install)
 
@@ -86,16 +146,27 @@ of Balatro). Your Steam ID is sent only to the server of a lobby you're in, so i
 delivered. While you're connecting to a friend's game, your rich presence briefly carries their
 Steam ID (`mp_joining`) so their game knows to accept your connection.
 
-## Installer for friends
+## How the installer is built (for developers)
+
+You don't need this section to play. It explains where the download in
+[Quick start](#quick-start) comes from.
+
+**Automatic:** on every push to `main` that changes `mod/`, `installer/` or the build script,
+the GitHub Action `.github/workflows/installer.yml` builds the zip on a Windows machine. It then
+uploads it to the **`latest`** release, replacing the old file, and moves the `latest` tag to that
+commit. The download link stays the same, so players always get the newest build. You can also
+run it by hand from the repo's **Actions** tab → **Build installer** → **Run workflow**. For
+players to download the zip without signing in, the repo must be public.
+
+**Locally:**
 
 ```powershell
 .\tools\build-friend-package.ps1
 ```
 
-This builds `dist\BalatroMultiplayer-Setup.zip`. Friends unzip it and double-click `Install.bat`.
-It finds Balatro through Steam's library list and installs Lovely v0.10.0 and Steamodded
-26.1002.0 (the tested versions), skipping either one if it's already installed. Then it installs
-the mod. Every player needs Balatro on Steam (PC).
+Either way, you get `dist\BalatroMultiplayer-Setup.zip`. `Install.bat` finds Balatro through
+Steam's library list and installs Lovely v0.10.0 and Steamodded 26.1002.0 (the tested versions),
+skipping either one if it's already installed. Then it installs the mod.
 
 ## Dedicated server (optional)
 
