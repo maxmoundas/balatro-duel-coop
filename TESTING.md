@@ -38,7 +38,7 @@ second laptop (account B).
 To test your working copy rather than the published build, build the package on the Mac and run
 it from there:
 ```sh
-./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/install-mac.sh
+./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/files/install-mac.sh
 ```
 Then launch Balatro from Steam as usual. A Windows + Mac pair is worth testing in both directions
 (Mac hosts, then Windows hosts), including step 4 below (invite while the game is closed), since

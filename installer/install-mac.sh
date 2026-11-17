@@ -6,7 +6,7 @@
 # Run it in Terminal, either straight from the web:
 #   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/install-mac.sh | bash
 # or from the unzipped BalatroMultiplayer-Setup folder:
-#   bash install-mac.sh
+#   bash files/install-mac.sh
 #
 # On macOS, Lovely is loaded by a small launcher that takes the place of the game's
 # executable (Balatro.app/Contents/MacOS/love; the real one is kept as love-original).

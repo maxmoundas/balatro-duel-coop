@@ -11,13 +11,21 @@ dist="$root/dist"
 stage="$dist/BalatroMultiplayer-Setup"
 rm -rf "$stage"
 mkdir -p "$stage"
-cp "$root"/installer/* "$stage/"
-cp -R "$root/mod/BalatroMultiplayer" "$stage/BalatroMultiplayer"
+# Only what Windows players double-click (and the README) sits at the top; the scripts they
+# run, the Mac scripts and the mod itself go in files/.
+mkdir -p "$stage/files"
+for f in "$root"/installer/*; do
+  case "$(basename "$f")" in
+    Install.bat|Uninstall.bat|README.txt) cp "$f" "$stage/" ;;
+    *) cp "$f" "$stage/files/" ;;
+  esac
+done
+cp -R "$root/mod/BalatroMultiplayer" "$stage/files/BalatroMultiplayer"
 
 if [ -n "$server" ]; then
   [[ "$server" =~ ^(.+):([0-9]+)$ ]] || { echo 'Server must look like host:port' >&2; exit 1; }
-  sed -i.bak -e "s/server_host = ''/server_host = '${BASH_REMATCH[1]}'/" -e "s/server_port = '8788'/server_port = '${BASH_REMATCH[2]}'/" "$stage/BalatroMultiplayer/config.lua"
-  rm -f "$stage/BalatroMultiplayer/config.lua.bak"
+  sed -i.bak -e "s/server_host = ''/server_host = '${BASH_REMATCH[1]}'/" -e "s/server_port = '8788'/server_port = '${BASH_REMATCH[2]}'/" "$stage/files/BalatroMultiplayer/config.lua"
+  rm -f "$stage/files/BalatroMultiplayer/config.lua.bak"
 fi
 
 rm -f "$dist/BalatroMultiplayer-Setup.zip"

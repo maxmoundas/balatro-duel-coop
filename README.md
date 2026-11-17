@@ -53,7 +53,7 @@ and Windows and Mac players can play together.
    - Prefer not to paste commands? Download and unzip the
      [zip](https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/BalatroMultiplayer-Setup.zip)
      instead, type `bash ` (with a space) in Terminal, drag `install-mac.sh` from the unzipped
-     folder into the window, and press Enter.
+     zip's `files` folder into the window, and press Enter.
 4. **Launch Balatro from Steam** as usual. The **MULTIPLAYER** button appears on the main menu.
 
 How it works on Mac: Lovely can't hook into the game the way it does on Windows, so the
@@ -241,7 +241,7 @@ Either way, you get `dist\BalatroMultiplayer-Setup.zip`, one package for both pl
 `Install.bat` (Windows) and `install-mac.sh` (Mac) find Balatro through Steam's library list and
 install Lovely v0.10.0 and Steamodded 26.1002.0 (the tested versions), skipping either one if it's
 already installed. Then they install the mod. To install your working copy on a Mac, run
-`./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/install-mac.sh`.
+`./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/files/install-mac.sh`.
 
 ## Dedicated server (optional)
 

@@ -6,7 +6,7 @@
 #
 #   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/uninstall-mac.sh | bash
 # or, from the unzipped BalatroMultiplayer-Setup folder:
-#   bash uninstall-mac.sh
+#   bash files/uninstall-mac.sh
 
 set -euo pipefail
 
