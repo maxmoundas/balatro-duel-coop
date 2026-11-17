@@ -436,23 +436,32 @@ function V.definition()
     V.ctx = { id = tostring(tp.id), name = tostring(tp.name), them = snap.data, me = ok and me or {} }
     local age = math.floor(love.timer.getTime() - snap.t)
     contents[#contents + 1] = row({ T('Updated ' .. (age <= 1 and 'just now' or (age .. 's ago')) .. '  |  TAB to close', 0.28, G.C.UI.TEXT_INACTIVE) })
-    contents[#contents + 1] = create_tabs {
-      tabs = {
-        { label = 'Compare', chosen = V.tab ~= 'deck', tab_definition_function = function() return protected(compare_tab) end },
-        { label = 'Their cards', tab_definition_function = function() return protected(cards_tab) end },
-        { label = 'Deck', chosen = V.tab == 'deck', tab_definition_function = function() return protected(deck_tab) end },
-        { label = 'Poker hands', tab_definition_function = function() return protected(hands_tab) end },
-        { label = 'History', tab_definition_function = function() return protected(history_tab) end },
-      },
-      tab_h = 7.6, snap_to_nav = true,
+    -- Balatro builds a tab when it is selected, so each builder records itself as the
+    -- current tab; switching player or deck then reopens on the tab you were looking at.
+    local specs = {
+      { 'compare', 'Compare', compare_tab }, { 'cards', 'Their cards', cards_tab }, { 'deck', 'Deck', deck_tab },
+      { 'hands', 'Poker hands', hands_tab }, { 'history', 'History', history_tab },
     }
+    local current = 'compare'
+    for _, spec in ipairs(specs) do if spec[1] == V.tab then current = V.tab end end
+    local tabs = {}
+    for i, spec in ipairs(specs) do
+      tabs[i] = { label = spec[2], chosen = spec[1] == current, tab_definition_function = function()
+        V.tab = spec[1]
+        return protected(spec[3])
+      end }
+    end
+    contents[#contents + 1] = create_tabs { tabs = tabs, tab_h = 7.6, snap_to_nav = true }
   end
   return create_UIBox_generic_options { contents = contents }
 end
 
-function V.open()
+-- `reopen`: rebuilding the viewer that is already on screen (another player, the other
+-- deck). It keeps its tab and appears in place instead of sliding in again.
+function V.open(reopen)
   if not MP.run or G.STAGE ~= G.STAGES.RUN then return end
   V.is_open = true
+  if not reopen then V.tab = nil end -- a fresh open starts on Compare
   local saved = G.GAME and G.GAME.pseudorandom and copy_table(G.GAME.pseudorandom)
   local ok, def = pcall(V.definition)
   if saved then G.GAME.pseudorandom = saved end
@@ -462,8 +471,7 @@ function V.open()
     V.is_open = false
     return
   end
-  G.FUNCS.overlay_menu { definition = def }
-  V.tab = nil -- next open starts on Compare again
+  G.FUNCS.overlay_menu { definition = def, config = reopen and { offset = { x = 0, y = 0 } } or nil }
 end
 
 function V.toggle()
@@ -478,7 +486,7 @@ end
 function V.update()
   if V.pending_open then
     V.pending_open = false
-    if V.is_open and G.OVERLAY_MENU then V.open() end
+    if V.is_open and G.OVERLAY_MENU then V.open(true) end
   end
 end
 
@@ -489,10 +497,9 @@ G.FUNCS.mp_viewer_target = function(args)
   V.pending_open = true
 end
 
--- Deck tab: switch between their deck and yours (reopens on the Deck tab).
+-- Deck tab: switch between their deck and yours.
 G.FUNCS.mp_viewer_deck_owner = function()
   V.deck_owner = V.deck_owner ~= 'me' and 'me' or 'them'
-  V.tab = 'deck'
   V.pending_open = true
 end
 

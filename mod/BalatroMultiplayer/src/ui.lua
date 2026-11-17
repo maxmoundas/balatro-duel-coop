@@ -1,4 +1,4 @@
--- Lobby menu (Balatro UIBox) + in-run HUD (drawn directly with love.graphics).
+-- Lobby menu + in-run HUD (status bar, notices, toasts), all built from Balatro UIBoxes.
 
 local Net = MP.net
 local UI = { is_open = false, last_error = nil, picking = nil, creating = false }
@@ -47,6 +47,14 @@ local function text_row(str, scale, colour)
   return { n = G.UIT.R, config = { align = 'cm', padding = 0.04 }, nodes = {
     { n = G.UIT.T, config = { text = str, scale = scale or 0.4, colour = colour or G.C.UI.TEXT_LIGHT, shadow = true } },
   } }
+end
+
+local function pill(nodes, colour, padding)
+  return { n = G.UIT.C, config = { align = 'cm', padding = padding or 0.06, r = 0.08, colour = colour or G.C.BLACK }, nodes = nodes }
+end
+
+local function label(str, scale, colour)
+  return { n = G.UIT.T, config = { text = str, scale = scale, colour = colour or G.C.UI.TEXT_LIGHT, shadow = true } }
 end
 
 local function button_row(label, fn, colour, minw)
@@ -264,12 +272,24 @@ function UI.definition()
     -- Compact layout: everything has to fit on a 16:9 screen along with the Back button.
     local l = MP.lobby
     local max = l.mode == 'duel' and 2 or 4
-    nodes[1] = text_row('MULTIPLAYER  -  Lobby ' .. tostring(l.code) .. '  |  Seed ' .. tostring(l.seed), 0.5, G.C.GOLD)
+    nodes[1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.06 }, nodes = {
+      { n = G.UIT.C, config = { align = 'cm', padding = 0.04 }, nodes = { label('MULTIPLAYER', 0.5, G.C.GOLD) } },
+      pill { label('LOBBY  ', 0.28, G.C.UI.TEXT_INACTIVE), label(tostring(l.code), 0.4) },
+      pill { label('SEED  ', 0.28, G.C.UI.TEXT_INACTIVE), label(tostring(l.seed), 0.4) },
+    } }
 
     local players = { text_row('Players (' .. #(l.players or {}) .. '/' .. max .. ')', 0.45, G.C.GOLD) }
     for _, p in ipairs(l.players or {}) do
-      local tag = (tostring(p.id) == tostring(l.hostId) and ' (host)' or '') .. (tostring(p.id) == MP.my_id and ' - you' or '')
-      players[#players + 1] = text_row(tostring(p.name) .. tag, 0.4)
+      local entry = { label(tostring(p.name), 0.4) }
+      if tostring(p.id) == tostring(l.hostId) then
+        entry[#entry + 1] = { n = G.UIT.B, config = { w = 0.1, h = 0.1 } }
+        entry[#entry + 1] = pill({ label('HOST', 0.24) }, G.C.ORANGE, 0.04)
+      end
+      if tostring(p.id) == MP.my_id then
+        entry[#entry + 1] = { n = G.UIT.B, config = { w = 0.1, h = 0.1 } }
+        entry[#entry + 1] = pill({ label('YOU', 0.24) }, G.C.BLUE, 0.04)
+      end
+      players[#players + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.04 }, nodes = entry }
     end
     if #(l.players or {}) < max then
       players[#players + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.05 }, nodes = {
@@ -423,6 +443,8 @@ function UI.update()
     refresh_friends(false)
     UI.refresh()
   end
+  local ok, err = pcall(UI.update_hud)
+  if not ok and not UI.hud_err then UI.hud_err = true; print('[BalatroMultiplayer] HUD error: ' .. tostring(err)) end
   -- Friends' invites arrive via their Steam rich presence: check every few seconds on the main menu.
   if G.STAGE == G.STAGES.MAIN_MENU and MP.steam and MP.steam.ok and now >= (UI.next_invite_poll or 0) then
     UI.next_invite_poll = now + 5
@@ -752,188 +774,322 @@ function UI.install_hooks()
     if key == 'tab' and MP.run and G.STAGE == G.STAGES.RUN and MP.viewer then MP.viewer.toggle() return end
     return orig_key(key, ...)
   end
-
-  -- Clicking the multiplayer status bar opens the player viewer.
-  local orig_mouse = love.mousepressed
-  love.mousepressed = function(x, y, button, ...)
-    local r = UI.hud_rect
-    if button == 1 and r and MP.run and G.STAGE == G.STAGES.RUN and not G.OVERLAY_MENU and not UI.hud_hidden
-      and x >= r[1] and x <= r[1] + r[3] and y >= r[2] and y <= r[2] + r[4] and MP.viewer then
-      MP.viewer.open()
-      return
-    end
-    return orig_mouse(x, y, button, ...)
-  end
-
-  local orig_draw = love.draw
-  love.draw = function(...)
-    orig_draw(...)
-    local ok, err = pcall(UI.draw_hud)
-    if not ok and not UI.draw_err then UI.draw_err = true; print('[BalatroMultiplayer] HUD error: ' .. tostring(err)) end
-  end
 end
 
 -- HUD -----------------------------------------------------------------------------
+--
+-- Everything shown during a run (status bar, waiting / result notices, toasts) is a
+-- regular Balatro UIBox, so it gets the game's font, shadows, CRT filter and screen
+-- shake. Boxes are only rebuilt when what they display changes.
+--
+-- Draw order (Game:draw): G.I.UIBOX sits under overlay menus, G.I.POPUP above them.
+-- Toasts and end-of-run notices use POPUP so they stay visible over a menu.
+--
+-- While the game is paused (Options, game over...; not every overlay menu pauses)
+-- Balatro freezes anything created unpaused, and it only lets you click things created
+-- in the current pause state. So the clickable status bar is never rebuilt while
+-- paused, and the POPUP boxes are flagged to always move.
 
-local fonts = {}
-local function font(px)
-  px = math.max(10, math.floor(px))
-  if not fonts[px] then fonts[px] = love.graphics.newFont(px) end
-  return fonts[px]
+local slots = {}        -- name -> { box = UIBox, sig = string }
+UI.toast_boxes = {}     -- toast entry (from MP.toasts) -> UIBox
+
+-- Clicks and hovers pass straight through to the cards underneath.
+local function passive(node)
+  node.config = node.config or {}
+  node.config.can_collide = false
+  for _, c in ipairs(node.nodes or {}) do passive(c) end
+  return node
 end
 
-local function rgba(c, a)
-  c = c or { 1, 1, 1, 1 }
-  return c[1], c[2], c[3], a or c[4] or 1
+local function keep_moving(node)
+  node.created_on_pause = true
+  if node.config and node.config.object then node.config.object.created_on_pause = true end
+  for _, c in pairs(node.children or {}) do keep_moving(c) end
 end
 
-local function panel(x, y, w, h, alpha)
-  love.graphics.setColor(0.08, 0.1, 0.12, alpha or 0.82)
-  love.graphics.rectangle('fill', x, y, w, h, 8, 8)
-  love.graphics.setColor(1, 1, 1, 0.15)
-  love.graphics.rectangle('line', x, y, w, h, 8, 8)
+local function drop(box)
+  if box and not box.REMOVED then box:remove() end
 end
 
-local function centered(text, cy, size, colour)
-  local W = love.graphics.getWidth()
-  local f = font(size)
-  love.graphics.setFont(f)
-  local tw = f:getWidth(text)
-  love.graphics.setColor(rgba(colour))
-  love.graphics.print(text, (W - tw) / 2, cy - f:getHeight() / 2)
-  return tw, f:getHeight()
-end
-
-local function banner(lines, cy)
-  local W, H = love.graphics.getDimensions()
-  local s = H / 40
-  local w, h = 0, 0
-  for _, l in ipairs(lines) do
-    local f = font(s * (l.scale or 1))
-    w = math.max(w, f:getWidth(l.text))
-    h = h + f:getHeight() * 1.2
+-- Show `build()`'s box in `name` while `sig` is unchanged; nil `sig` removes it.
+local function sync(name, sig, build)
+  local cur = slots[name]
+  if cur and cur.box and cur.box.REMOVED then cur = nil end -- e.g. cleared with the run
+  if not sig then
+    if cur then drop(cur.box) end
+    slots[name] = nil
+    return
   end
-  panel((W - w) / 2 - s, cy - h / 2 - s * 0.6, w + 2 * s, h + s * 1.2, 0.9)
-  local y = cy - h / 2
-  for _, l in ipairs(lines) do
-    local f = font(s * (l.scale or 1))
-    centered(l.text, y + f:getHeight() * 0.6, s * (l.scale or 1), l.colour)
-    y = y + f:getHeight() * 1.2
+  if cur and cur.sig == sig then slots[name] = cur return end
+  if cur then drop(cur.box) end
+  local ok, box = pcall(build)
+  if not ok then
+    print('[BalatroMultiplayer] HUD error (' .. name .. '): ' .. tostring(box))
+    box = nil
   end
+  slots[name] = { box = box, sig = sig } -- a failed build is not retried until the content changes
 end
 
-local function result_lines(run)
+-- Status bar ----------------------------------------------------------------------
+
+-- A list of pills, each { bg = colour, { text, colour }, ... }.
+local function bar_pills(run)
+  local LIGHT, DIM = G.C.UI.TEXT_LIGHT, G.C.UI.TEXT_INACTIVE
+  local pills = {}
+  if run.mode == 'duel' then
+    local mine, theirs = 0, 0
+    for id, p in pairs(run.points or {}) do if tostring(id) == MP.my_id then mine = p else theirs = p end end
+    local opp_name = 'Opponent'
+    for _, p in ipairs(run.players) do if tostring(p.id) ~= MP.my_id then opp_name = p.name end end
+    local opp = run.opp or {}
+    pills[#pills + 1] = { bg = G.C.RED, { 'DUEL', LIGHT } }
+    pills[#pills + 1] = { bg = G.C.BLACK, { 'You  ', LIGHT }, { mine .. ' pts', G.C.GOLD } }
+    pills[#pills + 1] = { bg = G.C.BLACK, { tostring(opp_name) .. '  ', LIGHT }, { theirs .. ' pts', G.C.GOLD },
+      { '    Last hand ', DIM }, { opp.last and MP.fmt(opp.last) or '-', LIGHT },
+      { '    Best ', DIM }, { MP.fmt(opp.best or 0), LIGHT },
+      { '    Hands ', DIM }, { tostring(opp.hands or 0), LIGHT } }
+  else
+    local S = G.STATES
+    local in_blind = (G.STATE == S.SELECTING_HAND or G.STATE == S.HAND_PLAYED
+      or G.STATE == S.DRAW_TO_HAND or G.STATE == S.NEW_ROUND or run.coop_waiting)
+      and G.GAME and G.GAME.blind and G.GAME.blind.in_blind
+    pills[#pills + 1] = { bg = G.C.BLUE, { 'CO-OP x' .. tostring(MP.coop_scale()), LIGHT } }
+    if in_blind then
+      pills[#pills + 1] = { bg = G.C.BLACK, { 'Teammates  ', DIM }, { '+' .. MP.fmt(run.team_total or 0), G.C.GOLD } }
+    end
+    for _, p in ipairs(run.players) do
+      if tostring(p.id) ~= MP.my_id then
+        local pill = { bg = G.C.BLACK, { tostring(p.name), LIGHT } }
+        if in_blind then
+          local t = run.team[tostring(p.id)]
+          pill[#pill + 1] = { '  ' .. (t and t.last and MP.fmt(t.last) or '-'), DIM }
+        end
+        pills[#pills + 1] = pill
+      end
+    end
+  end
+  if run.disconnected then pills[#pills + 1] = { bg = G.C.RED, { 'DISCONNECTED', LIGHT } } end
+  pills[#pills + 1] = { bg = G.C.UI.BACKGROUND_INACTIVE, { 'TAB: players', LIGHT } }
+  return pills
+end
+
+local function pills_sig(pills)
+  local parts = {}
+  for _, pill in ipairs(pills) do
+    for _, seg in ipairs(pill) do parts[#parts + 1] = seg[1] end
+    parts[#parts + 1] = '|'
+  end
+  return table.concat(parts)
+end
+
+local function build_bar(pills)
+  local nodes = {}
+  for _, pill in ipairs(pills) do
+    local segs = {}
+    for _, seg in ipairs(pill) do
+      segs[#segs + 1] = { n = G.UIT.T, config = { text = seg[1], scale = 0.28, colour = seg[2], shadow = true } }
+    end
+    nodes[#nodes + 1] = { n = G.UIT.C, config = { align = 'cm', padding = 0.05, r = 0.08, colour = pill.bg }, nodes = segs }
+  end
+  -- Sits in the margin above the joker row. Clicking it opens the player viewer.
+  return UIBox {
+    definition = { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR }, nodes = {
+      { n = G.UIT.R, config = { align = 'cm', padding = 0.04, r = 0.1, colour = G.C.L_BLACK, emboss = 0.05,
+        hover = true, shadow = true, button = 'mp_open_viewer' }, nodes = nodes },
+    } },
+    config = { align = 'tmi', offset = { x = 0, y = -0.62 }, major = G.ROOM_ATTACH, bond = 'Weak' },
+  }
+end
+
+-- Notices (waiting for players, end of run) -----------------------------------------
+
+-- A notice is { title, colour, scale, bump, lines = { { text, colour } }, points = { { name, n } }, top, button }.
+local function result_notice(run)
   local r = run.result
-  local lines = {}
-  local pts = r.points or {}
+  local n = { lines = {}, scale = 0.9 }
   if r.mode == 'duel' then
-    local title, colour
-    if r.winnerId == nil then title, colour = 'DRAW', G.C.GOLD
-    elseif tostring(r.winnerId) == MP.my_id then title, colour = 'YOU WIN!', G.C.GREEN
-    else title, colour = 'YOU LOSE', G.C.RED end
+    if r.winnerId == nil then n.title, n.colour = 'DRAW', G.C.GOLD
+    elseif tostring(r.winnerId) == MP.my_id then n.title, n.colour = 'YOU WIN!', G.C.GREEN
+    else n.title, n.colour = 'YOU LOSE', G.C.RED end
     local reasons = {
       both_won = 'Both beat the final boss - most points wins',
       both_lost_same_round = 'Both runs ended on the same blind - most points wins',
       outlasted = 'One run ended first',
       opponent_left = 'Opponent left the game',
     }
-    lines[#lines + 1] = { text = title, scale = 2.2, colour = colour }
-    lines[#lines + 1] = { text = reasons[r.reason] or tostring(r.reason), scale = 0.9 }
+    n.lines[1] = { reasons[r.reason] or tostring(r.reason), G.C.UI.TEXT_LIGHT }
     local mine, theirs = 0, 0
-    for id, p in pairs(pts) do if tostring(id) == MP.my_id then mine = p else theirs = p end end
-    lines[#lines + 1] = { text = 'Points: you ' .. mine .. '  -  opponent ' .. theirs, scale = 1 }
+    for id, p in pairs(r.points or {}) do if tostring(id) == MP.my_id then mine = p else theirs = p end end
+    local opp_name = 'Opponent'
+    for _, p in ipairs(run.players or {}) do if tostring(p.id) ~= MP.my_id then opp_name = tostring(p.name) end end
+    n.points = { { 'You', mine }, { opp_name, theirs } }
   else
     local won = r.result == 'won'
-    lines[#lines + 1] = { text = won and 'TEAM VICTORY!' or 'TEAM DEFEATED', scale = 2.2, colour = won and G.C.GREEN or G.C.RED }
+    n.title, n.colour = won and 'TEAM VICTORY!' or 'TEAM DEFEATED', won and G.C.GREEN or G.C.RED
   end
-  lines[#lines + 1] = { text = 'Return to the main menu to leave', scale = 0.7, colour = G.C.UI.TEXT_INACTIVE }
-  return lines
+  return n
 end
 
-function UI.draw_hud()
-  local W, H = love.graphics.getDimensions()
-  local s = H / 40
-  love.graphics.push('all')
-  love.graphics.origin()
+local function notice_sig(n)
+  local parts = { n.title, tostring(n.top), tostring(n.button), tostring(n.button and n.paused) }
+  for _, l in ipairs(n.lines or {}) do parts[#parts + 1] = l[1] end
+  for _, p in ipairs(n.points or {}) do parts[#parts + 1] = p[1] .. '=' .. tostring(p[2]) end
+  return table.concat(parts, '|')
+end
 
-  local run = MP.run
-  if run and G.STAGE == G.STAGES.RUN and not UI.hud_hidden then
-    -- Status bar
-    local text
-    if run.mode == 'duel' then
-      local mine, theirs = 0, 0
-      for id, p in pairs(run.points or {}) do if tostring(id) == MP.my_id then mine = p else theirs = p end end
-      local opp_name = 'Opponent'
-      for _, p in ipairs(run.players) do if tostring(p.id) ~= MP.my_id then opp_name = p.name end end
-      text = string.format('DUEL  |  You %d pts  -  %s %d pts  |  %s: last hand %s, best this blind %s, hands %s',
-        mine, opp_name, theirs, opp_name, run.opp.last and MP.fmt(run.opp.last) or '-', MP.fmt(run.opp.best or 0), tostring(run.opp.hands or 0))
-    else
-      local S = G.STATES
-      local in_blind = (G.STATE == S.SELECTING_HAND or G.STATE == S.HAND_PLAYED
-        or G.STATE == S.DRAW_TO_HAND or G.STATE == S.NEW_ROUND or run.coop_waiting)
-        and G.GAME and G.GAME.blind and G.GAME.blind.in_blind
-      local parts = {}
-      for _, p in ipairs(run.players) do
-        if tostring(p.id) ~= MP.my_id then
-          local t = run.team[tostring(p.id)]
-          parts[#parts + 1] = in_blind and (p.name .. ': ' .. (t and t.last and MP.fmt(t.last) or '-')) or p.name
-        end
-      end
-      if in_blind then
-        text = string.format('CO-OP x%d  |  Teammates added %s this blind  |  Last hands: %s',
-          MP.coop_scale(), MP.fmt(run.team_total or 0), table.concat(parts, ', '))
-      else
-        text = string.format('CO-OP x%d  |  Team: %s', MP.coop_scale(), table.concat(parts, ', '))
-      end
+local function build_notice(n)
+  local scale = (n.scale or 0.5) * (n.top and 0.8 or 1)
+  local title = { n = G.UIT.R, config = { align = 'cm', padding = 0.03 }, nodes = {
+    { n = G.UIT.O, config = { object = DynaText { string = { n.title }, colours = { n.colour or G.C.WHITE },
+      shadow = true, silent = true, bump = n.bump, float = not n.bump, scale = scale, pop_in = 0.1, maxw = 9 } } },
+  } }
+  local body = {}
+  for _, l in ipairs(n.lines or {}) do
+    body[#body + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.02 }, nodes = {
+      { n = G.UIT.T, config = { text = l[1], scale = l[3] or 0.34, colour = l[2] or G.C.UI.TEXT_LIGHT, shadow = true } },
+    } }
+  end
+  if n.points then
+    local row = {}
+    for _, p in ipairs(n.points) do
+      row[#row + 1] = { n = G.UIT.C, config = { align = 'cm', padding = 0.07, r = 0.08, colour = G.C.L_BLACK }, nodes = {
+        { n = G.UIT.T, config = { text = p[1] .. '  ', scale = 0.32, colour = G.C.UI.TEXT_LIGHT, shadow = true } },
+        { n = G.UIT.T, config = { text = tostring(p[2]) .. ' pts', scale = 0.32, colour = G.C.GOLD, shadow = true } },
+      } }
     end
-    if run.disconnected then text = text .. '  |  DISCONNECTED' end
-    text = text .. '  |  TAB: view players'
-    local f = font(s * 0.75)
-    local tw = f:getWidth(text)
-    UI.hud_rect = { (W - tw) / 2 - s * 0.5, s * 0.15, tw + s, f:getHeight() + s * 0.4 }
-    panel((W - tw) / 2 - s * 0.5, s * 0.15, tw + s, f:getHeight() + s * 0.4, 0.8)
-    centered(text, s * 0.35 + f:getHeight() / 2, s * 0.75, G.C.WHITE)
-
-    -- Waiting states
-    local viewer_open = MP.viewer and MP.viewer.is_open and G.OVERLAY_MENU
-    if not run.finished and not viewer_open then
-      if run.gate then
-        local who = run.gate_waiting_for
-        who = (type(who) == 'table' and #who > 0) and table.concat(who, ', ')
-          or (run.mode == 'duel' and 'your opponent' or 'your teammates')
-        banner({
-          { text = 'Waiting for ' .. who, scale = 1.1 },
-          { text = run.gate.kind == 'shop' and 'to finish the blind before the shop opens...'
-            or 'to be ready for the next blind...', scale = 0.8 },
-          { text = 'TAB: view players', scale = 0.6, colour = G.C.UI.TEXT_INACTIVE },
-        }, H * 0.42)
-      elseif run.coop_waiting and run.coop_waiting == run.slot then
-        banner({
-          { text = 'Out of hands', scale = 1.3, colour = G.C.RED },
-          { text = 'Waiting for teammates to finish the blind...', scale = 0.9 },
-        }, H * 0.42)
-      elseif run.reported_end and run.mode == 'duel' then
-        banner({ { text = 'Waiting for your opponent to finish...', scale = 1 } }, H * 0.25)
-      end
-    end
+    body[#body + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.06 }, nodes = row }
   end
 
-  if run and run.result then banner(result_lines(run), H * 0.3) end
+  local contents
+  if n.top then -- one compact strip, clear of the game over / win screen below it
+    contents = { { n = G.UIT.C, config = { align = 'cm', padding = 0.05 }, nodes = { title } } }
+    if #body > 0 then contents[2] = { n = G.UIT.C, config = { align = 'cm', padding = 0.05 }, nodes = body } end
+  else
+    local rows = { title }
+    for _, b in ipairs(body) do rows[#rows + 1] = b end
+    contents = { { n = G.UIT.C, config = { align = 'cm' }, nodes = rows } }
+  end
+  local def = passive({ n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.05 }, nodes = {
+    { n = G.UIT.R, config = { align = 'cm', padding = 0.15, r = 0.1, colour = G.C.BLACK, emboss = 0.05,
+      outline = 1, outline_colour = n.colour or G.C.JOKER_GREY }, nodes = contents },
+  } })
+  if n.button then -- added after passive(): this one is meant to be clicked
+    local rows = contents[1].nodes
+    rows[#rows + 1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.08 }, nodes = {
+      UIBox_button { button = 'go_to_menu', label = { localize('b_main_menu') }, colour = G.C.RED, minw = 3, minh = 0.6, scale = 0.4 },
+    } }
+  end
 
-  -- Toasts
-  local y = H * 0.12
+  if n.top then
+    local box = UIBox { definition = def, config = { align = 'tmi', offset = { x = 0, y = 0.2 }, major = G.ROOM_ATTACH,
+      bond = 'Weak', instance_type = 'POPUP', can_collide = false } }
+    keep_moving(box)
+    keep_moving(box.UIRoot)
+    return box
+  end
+  -- Centred on the play area (the room's centre is further left, under the sidebar's edge).
+  return UIBox { definition = def, config = { align = 'cm', offset = { x = 1, y = -1 }, major = G.ROOM_ATTACH, bond = 'Weak' } }
+end
+
+local function current_notice(run, in_run, paused)
+  local menu_open = G.OVERLAY_MENU and true or false
+  if run and run.result then
+    local n = result_notice(run)
+    -- With a menu open (the game over / win screen has its own Main Menu button) show a
+    -- strip above it; otherwise a panel with the button, rebuilt if the pause state
+    -- changes so the button stays clickable.
+    n.top, n.button, n.paused = menu_open, not menu_open, paused
+    return n
+  end
+  if not in_run or run.finished or UI.hud_hidden then return nil end
+  if run.gate or (run.coop_waiting and run.coop_waiting == run.slot) then
+    if paused then return 'hold' end -- frozen under the menu anyway
+    if run.gate then
+      local who = run.gate_waiting_for
+      who = (type(who) == 'table' and #who > 0) and table.concat(who, ', ')
+        or (run.mode == 'duel' and 'your opponent' or 'your teammates')
+      return { title = 'Waiting for ' .. who, bump = true, lines = {
+        { run.gate.kind == 'shop' and 'to finish the blind before the shop opens...' or 'to be ready for the next blind...' },
+        { 'TAB: view players', G.C.UI.TEXT_INACTIVE, 0.28 },
+      } }
+    end
+    return { title = 'Out of hands', colour = G.C.RED, scale = 0.6, lines = {
+      { 'Waiting for teammates to finish the blind...' },
+    } }
+  end
+  local viewer_open = MP.viewer and MP.viewer.is_open and G.OVERLAY_MENU
+  if run.reported_end and run.mode == 'duel' and not viewer_open then
+    return { title = 'Waiting for your opponent to finish...', scale = 0.45, bump = true, top = menu_open }
+  end
+  return nil
+end
+
+-- Toasts ----------------------------------------------------------------------------
+
+local TOAST_Y, TOAST_GAP, TOAST_OFFSCREEN = 3.3, 0.06, 12
+
+local function build_toast(t, y, fresh)
+  local accent = t.colour or G.C.UI.TEXT_INACTIVE
+  local box = UIBox {
+    definition = passive({ n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.02 }, nodes = {
+      { n = G.UIT.R, config = { align = 'cl', padding = 0.08, r = 0.1, colour = G.C.BLACK, emboss = 0.05 }, nodes = {
+        { n = G.UIT.C, config = { align = 'cm', minw = 0.1, minh = 0.34, r = 0.05, colour = accent }, nodes = {} },
+        { n = G.UIT.C, config = { align = 'cl', padding = 0.03, maxw = 8 }, nodes = {
+          { n = G.UIT.T, config = { text = tostring(t.text), scale = 0.32, colour = G.C.UI.TEXT_LIGHT, shadow = true } },
+        } },
+      } },
+    } }),
+    -- A new toast starts off the right edge and slides in when its offset is set to 0.
+    config = { align = 'tri', offset = { x = fresh and TOAST_OFFSCREEN or 0, y = y }, major = G.ROOM_ATTACH,
+      bond = 'Weak', instance_type = 'POPUP', can_collide = false },
+  }
+  keep_moving(box)
+  keep_moving(box.UIRoot)
+  return box
+end
+
+local function sync_toasts()
+  local live, y = {}, TOAST_Y
   for _, t in ipairs(MP.toasts) do
-    local a = math.min(1, (5 - t.t) / 0.5)
-    local f = font(s * 0.7)
-    local tw = f:getWidth(t.text)
-    panel(W - tw - s * 1.6, y, tw + s, f:getHeight() + s * 0.3, 0.8 * a)
-    love.graphics.setFont(f)
-    love.graphics.setColor(rgba(t.colour or G.C.WHITE, a))
-    love.graphics.print(t.text, W - tw - s * 1.1, y + s * 0.15)
-    y = y + f:getHeight() + s * 0.5
+    live[t] = true
+    local box = UI.toast_boxes[t]
+    if box and box.REMOVED then box = nil end
+    if not box and not t.failed then
+      local ok, res = pcall(build_toast, t, y, t.t < 0.3)
+      if ok then box = res else t.failed = true; print('[BalatroMultiplayer] toast error: ' .. tostring(res)) end
+      UI.toast_boxes[t] = box
+    end
+    if box then
+      box.alignment.offset.x = t.t > 4.6 and TOAST_OFFSCREEN or 0 -- slides out just before it expires
+      box.alignment.offset.y = y
+      y = y + box.T.h + TOAST_GAP
+    end
+  end
+  for t, box in pairs(UI.toast_boxes) do
+    if not live[t] then drop(box); UI.toast_boxes[t] = nil end
+  end
+end
+
+-- Called every frame (from UI.update).
+function UI.update_hud()
+  if not G.ROOM_ATTACH then return end
+  local paused = G.SETTINGS.paused and true or false
+  local run = MP.run
+  local in_run = run ~= nil and G.STAGE == G.STAGES.RUN
+
+  if not (in_run and not UI.hud_hidden) then
+    sync('bar', nil)
+  elseif not paused then
+    local pills = bar_pills(run)
+    sync('bar', pills_sig(pills), function() return build_bar(pills) end)
   end
 
-  love.graphics.pop()
+  local notice = current_notice(run, in_run, paused)
+  if notice ~= 'hold' then
+    sync('notice', notice and notice_sig(notice), function() return build_notice(notice) end)
+  end
+
+  sync_toasts()
 end
 
 return UI
