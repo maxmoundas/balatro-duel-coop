@@ -133,15 +133,6 @@ local function hand_name(name)
   return (ok and loc and loc ~= 'ERROR') and loc or name
 end
 
-local function most_played(s)
-  local best
-  for _, h in ipairs(s.poker_hands or {}) do
-    if (h.p or 0) > 0 and (not best or h.p > best.p) then best = h end
-  end
-  if not best then return '-' end
-  return hand_name(best.n) .. ' (Lv ' .. tostring(best.l or 1) .. ')'
-end
-
 -- Counts of upgraded cards in a full deck.
 local function deck_stats(s)
   local st = { total = 0, enh = 0, seal = 0, ed = 0 }
@@ -173,54 +164,58 @@ end
 -- ---------------------------------------------------------------------------
 -- Tabs
 
-local function compare_row(label, mine, theirs, better, mine_v, theirs_v)
-  local cm, ct = G.C.WHITE, G.C.WHITE
-  if better and type(mine_v) == 'number' and type(theirs_v) == 'number' and mine_v ~= theirs_v then
-    local mine_better = (better == 'high') == (mine_v > theirs_v)
-    if mine_better then cm = G.C.GREEN else ct = G.C.GREEN end
+-- A "stat | you | them" table. Each stat is { label, mine, theirs, better = 'high'|'low',
+-- mv = number, tv = number }; when `better` is set, the better number is green.
+-- `sub` (optional) puts a small line under each name in the header (e.g. status).
+local STAT_LW, STAT_VW = 3, 3.4
+
+local function stat_table(name, stats, sub)
+  local function head(text, small)
+    local nodes = { row({ T(text, 0.42, G.C.GOLD) }) }
+    if small then nodes[2] = row({ T(small, 0.27, G.C.UI.TEXT_INACTIVE) }) end
+    return { n = G.UIT.C, config = { align = 'cm', minw = STAT_VW, maxw = STAT_VW }, nodes = nodes }
   end
-  return row({ cell(label, 2.6, G.C.UI.TEXT_INACTIVE), cell(mine, 3.6, cm), cell(theirs, 3.6, ct) }, { padding = 0.015 })
+  local rows = { row({ cell('', STAT_LW), head('You', sub and sub[1]), head(name, sub and sub[2]) }, { padding = 0.04 }) }
+  for i, s in ipairs(stats) do
+    local cm, ct = G.C.WHITE, G.C.WHITE
+    if s.better and type(s.mv) == 'number' and type(s.tv) == 'number' and s.mv ~= s.tv then
+      if (s.better == 'high') == (s.mv > s.tv) then cm = G.C.GREEN else ct = G.C.GREEN end
+    end
+    rows[#rows + 1] = row({
+      { n = G.UIT.C, config = { align = 'cl', minw = STAT_LW, maxw = STAT_LW, padding = 0.02 }, nodes = { T(s[1], 0.32, G.C.UI.TEXT_INACTIVE) } },
+      cell(s[2], STAT_VW, cm, 0.4), cell(s[3], STAT_VW, ct, 0.4),
+    }, { padding = 0.06, r = 0.08, minh = 0.5, colour = i % 2 == 1 and G.C.L_BLACK or G.C.CLEAR })
+  end
+  return rows
+end
+
+local function status_text(s)
+  if s.status == 'won' then return 'Beat the final boss' elseif s.status == 'lost' then return 'Run over' end
+  return s.state or ''
 end
 
 local function compare_tab()
   local c = V.ctx
   local me, them = c.me, c.them
-  local blind = function(s)
-    if not s.blind then return '-' end
-    return s.blind .. ' (' .. fmt(s.chips or 0) .. ' / ' .. fmt(s.target or 0) .. ')'
-  end
-  local status = function(s)
-    if s.status == 'won' then return 'Beat the final boss' elseif s.status == 'lost' then return 'Run over' end
-    return s.state or '-'
-  end
-  local rows = {
-    row({ cell('', 2.6), cell('You', 3.6, G.C.GOLD, 0.4), cell(c.name, 3.6, G.C.GOLD, 0.4) }),
-    compare_row('Status', status(me), status(them)),
-    compare_row('Ante / Round', 'Ante ' .. tostring(me.ante or '-') .. '  Round ' .. tostring(me.round or '-'),
-      'Ante ' .. tostring(them.ante or '-') .. '  Round ' .. tostring(them.round or '-'), 'high', me.slot, them.slot),
-    compare_row('Current blind', blind(me), blind(them)),
-    compare_row('Money', '$' .. tostring(me.money or 0), '$' .. tostring(them.money or 0), 'high', me.money, them.money),
-    compare_row('Hands / Discards', tostring(me.hands_left or '-') .. ' / ' .. tostring(me.discards_left or '-'),
-      tostring(them.hands_left or '-') .. ' / ' .. tostring(them.discards_left or '-')),
-    compare_row('Best hand', fmt(me.best or 0), fmt(them.best or 0), 'high', me.best, them.best),
+  local stats = {
+    { 'Money', '$' .. tostring(me.money or 0), '$' .. tostring(them.money or 0), better = 'high', mv = me.money, tv = them.money },
+    { 'Hands left', tostring(me.hands_left or '-'), tostring(them.hands_left or '-'),
+      better = 'high', mv = me.hands_left, tv = them.hands_left },
+    { 'Discards left', tostring(me.discards_left or '-'), tostring(them.discards_left or '-'),
+      better = 'high', mv = me.discards_left, tv = them.discards_left },
+    { 'Hand size', tostring(me.hand_size or '-'), tostring(them.hand_size or '-'),
+      better = 'high', mv = me.hand_size, tv = them.hand_size },
+    { 'Draw pile', tostring(me.deck_count or 0) .. ' of ' .. tostring(me.deck_total or 0),
+      tostring(them.deck_count or 0) .. ' of ' .. tostring(them.deck_total or 0) },
+    { 'Best hand', fmt(me.best or 0), fmt(them.best or 0), better = 'high', mv = me.best, tv = them.best },
   }
   if MP.run.mode == 'duel' then
     local mp, tp = points_of(MP.my_id), points_of(c.id)
-    rows[#rows + 1] = compare_row('Points', tostring(mp), tostring(tp), 'high', mp, tp)
+    stats[#stats + 1] = { 'Points', tostring(mp), tostring(tp), better = 'high', mv = mp, tv = tp }
   end
-  rows[#rows + 1] = compare_row('Jokers', #(me.jokers or {}) .. ' / ' .. tostring(me.joker_slots or '-'),
-    #(them.jokers or {}) .. ' / ' .. tostring(them.joker_slots or '-'))
-  rows[#rows + 1] = compare_row('Hand size', tostring(me.hand_size or '-'), tostring(them.hand_size or '-'),
-    'high', me.hand_size, them.hand_size)
-  rows[#rows + 1] = compare_row('Draw pile / deck', tostring(me.deck_count or 0) .. ' / ' .. tostring(me.deck_total or 0),
-    tostring(them.deck_count or 0) .. ' / ' .. tostring(them.deck_total or 0))
-  rows[#rows + 1] = compare_row('Upgraded cards', deck_summary(me), deck_summary(them))
-  rows[#rows + 1] = compare_row('Vouchers', tostring(#(me.vouchers or {})), tostring(#(them.vouchers or {})),
-    'high', #(me.vouchers or {}), #(them.vouchers or {}))
-  rows[#rows + 1] = compare_row('Most played', most_played(me), most_played(them))
 
   return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.08 }, nodes = {
-    panel(rows),
+    panel(stat_table(c.name, stats, { status_text(me), status_text(them) })),
     panel({
       labelled_cards(c.name .. "'s jokers", them.jokers, false, 0.5, 8.5),
       labelled_cards('Your jokers', me.jokers, false, 0.5, 8.5),
@@ -337,73 +332,95 @@ local function by_slot(history)
   return m
 end
 
-local function result_text(rec)
-  if not rec then return '-', G.C.UI.TEXT_INACTIVE end
-  if rec.skipped then return 'Skipped', G.C.UI.TEXT_INACTIVE end
-  if rec.won == true then return 'Beat', G.C.GREEN end
-  if rec.won == false then return 'Failed', G.C.RED end
-  return 'Playing', G.C.UI.TEXT_INACTIVE
+-- Whole-run totals from a player's blind history.
+local function run_totals(hist)
+  local t = { beaten = 0, skipped = 0, score = 0, hands = 0, best = 0 }
+  for _, rec in pairs(hist) do
+    if rec.skipped then
+      t.skipped = t.skipped + 1
+    else
+      if rec.won == true then t.beaten = t.beaten + 1 end
+      t.score = t.score + (rec.total or 0)
+      t.hands = t.hands + #(rec.hands or {})
+      t.best = math.max(t.best, rec.best or 0)
+    end
+  end
+  t.avg = t.hands > 0 and math.floor(t.score / t.hands) or 0
+  return t
 end
 
-local function hands_text(rec)
-  if not rec or rec.skipped then return '-' end
-  local parts = {}
-  for _, s in ipairs(rec.hands or {}) do parts[#parts + 1] = fmt(s) end
-  return #parts > 0 and table.concat(parts, ' / ') or '-'
+-- A value with a small detail line under it.
+local function cell2(top, bottom, w, colour)
+  local nodes = { row({ T(top, 0.36, colour) }) }
+  if bottom and bottom ~= '' then nodes[2] = row({ T(bottom, 0.26, G.C.UI.TEXT_INACTIVE) }) end
+  return { n = G.UIT.C, config = { align = 'cm', minw = w, maxw = w }, nodes = nodes }
 end
+
+-- One player's part in one blind: what they scored (green = blind beaten, red = failed)
+-- and how - hands used, best hand and, in Co-op, their share of the target.
+local function blind_cell(rec, w, coop)
+  if not rec then return cell2('-', nil, w, G.C.UI.TEXT_INACTIVE) end
+  if rec.skipped then return cell2('Skipped', nil, w, G.C.UI.TEXT_INACTIVE) end
+  local n = #(rec.hands or {})
+  local colour = rec.won == true and G.C.GREEN or rec.won == false and G.C.RED or G.C.WHITE
+  local detail
+  if n == 0 then
+    detail = rec.won == nil and 'playing' or 'no hands played'
+  else
+    detail = n .. (n == 1 and ' hand' or ' hands') .. ', best ' .. fmt(rec.best or 0)
+    if coop and (rec.target or 0) > 0 then
+      detail = detail .. ', ' .. math.floor((rec.total or 0) / rec.target * 100 + 0.5) .. '%'
+    end
+    if rec.won == nil then detail = detail .. ' (playing)' end
+  end
+  return cell2(fmt(rec.total or 0), detail, w, colour)
+end
+
+local HIST_BLINDS = 4 -- keeps the tab within the overlay's height
 
 local function history_tab()
   local c = V.ctx
+  local coop = MP.run.mode == 'coop'
   local mine, theirs = by_slot(c.me.history), by_slot(c.them.history)
   local max_slot = 0
   for s in pairs(mine) do max_slot = math.max(max_slot, s) end
   for s in pairs(theirs) do max_slot = math.max(max_slot, s) end
 
-  -- Per-ante totals
-  local antes, ante_rows = {}, {}
-  local function add(rec, who)
-    if rec.skipped then return end
-    local a = tonumber(rec.ante) or 0
-    antes[a] = antes[a] or { me_total = 0, me_best = 0, them_total = 0, them_best = 0 }
-    antes[a][who .. '_total'] = antes[a][who .. '_total'] + (rec.total or 0)
-    antes[a][who .. '_best'] = math.max(antes[a][who .. '_best'], rec.best or 0)
-  end
-  for _, r in pairs(mine) do add(r, 'me') end
-  for _, r in pairs(theirs) do add(r, 'them') end
-  local ante_keys = {}
-  for a in pairs(antes) do ante_keys[#ante_keys + 1] = a end
-  table.sort(ante_keys)
-  ante_rows[1] = row({ cell('Ante', 1.2, G.C.GOLD), cell('Your total', 2.2, G.C.GOLD), cell(c.name .. ' total', 2.2, G.C.GOLD),
-    cell('Your best', 2, G.C.GOLD), cell(c.name .. ' best', 2, G.C.GOLD) })
-  for _, a in ipairs(ante_keys) do
-    local d = antes[a]
-    local function col(x, y) if x == y then return G.C.WHITE, G.C.WHITE end return (x > y and G.C.GREEN or G.C.WHITE), (y > x and G.C.GREEN or G.C.WHITE) end
-    local t1, t2 = col(d.me_total, d.them_total)
-    local b1, b2 = col(d.me_best, d.them_best)
-    ante_rows[#ante_rows + 1] = row({ cell(a, 1.2), cell(fmt(d.me_total), 2.2, t1), cell(fmt(d.them_total), 2.2, t2),
-      cell(fmt(d.me_best), 2, b1), cell(fmt(d.them_best), 2, b2) }, { padding = 0.01 })
-  end
-  if #ante_keys == 0 then ante_rows[#ante_rows + 1] = row({ T('No blinds played yet', 0.3, G.C.UI.TEXT_INACTIVE) }) end
+  -- Whole run at a glance.
+  local a, b = run_totals(mine), run_totals(theirs)
+  local function num(label, x, y, f) return { label, (f or fmt)(x), (f or fmt)(y), better = 'high', mv = x, tv = y } end
+  local stats = {}
+  if not coop then stats[#stats + 1] = num('Blinds beaten', a.beaten, b.beaten, tostring) end
+  stats[#stats + 1] = num(coop and 'Score contributed' or 'Total score', a.score, b.score)
+  stats[#stats + 1] = num('Average hand', a.avg, b.avg)
+  stats[#stats + 1] = num('Best hand', a.best, b.best)
+  stats[#stats + 1] = { 'Hands played / skips', a.hands .. ' / ' .. a.skipped, b.hands .. ' / ' .. b.skipped }
 
-  -- Last 8 blinds
-  local blind_rows = { row({ cell('#', 0.6, G.C.GOLD), cell('Blind', 2.4, G.C.GOLD), cell('Your hands', 2.9, G.C.GOLD),
-    cell('', 0.9), cell(c.name .. "'s hands", 2.9, G.C.GOLD), cell('', 0.9) }) }
-  for s = math.max(1, max_slot - 7), max_slot do
+  -- Recent blinds, newest first.
+  local BW, TW, PW = 2.9, 1.8, 3.6
+  local blind_rows = { row({ cell('Blind', BW, G.C.GOLD), cell('Target', TW, G.C.GOLD), cell('You', PW, G.C.GOLD),
+    cell(c.name, PW, G.C.GOLD) }, { padding = 0.03 }) }
+  for s = max_slot, math.max(1, max_slot - HIST_BLINDS + 1), -1 do
     local m, t = mine[s], theirs[s]
     local any = m or t
-    local name = any and ('A' .. tostring(any.ante or '?') .. ' ' .. tostring(any.blind or '')) or '-'
-    local mr, mc = result_text(m)
-    local tr, tc = result_text(t)
-    blind_rows[#blind_rows + 1] = row({ cell(s, 0.6), cell(name, 2.4), cell(hands_text(m), 2.9), cell(mr, 0.9, mc, 0.28),
-      cell(hands_text(t), 2.9), cell(tr, 0.9, tc, 0.28) }, { padding = 0.01 })
+    if any then
+      local played = (m and not m.skipped and m) or (t and not t.skipped and t) or any
+      local target = (m and m.target) or (t and t.target)
+      blind_rows[#blind_rows + 1] = row({
+        cell2(tostring(played and played.blind or any.blind or '?'), 'Ante ' .. tostring(any.ante or '?'), BW, G.C.WHITE),
+        cell(target and fmt(target) or '-', TW, G.C.UI.TEXT_LIGHT, 0.34),
+        blind_cell(m, PW, coop), blind_cell(t, PW, coop),
+      }, { padding = 0.05, r = 0.08, colour = (max_slot - s) % 2 == 0 and G.C.L_BLACK or G.C.CLEAR })
+    end
   end
-  if max_slot == 0 then blind_rows[#blind_rows + 1] = row({ T('No blinds played yet', 0.3, G.C.UI.TEXT_INACTIVE) }) end
+  if max_slot == 0 then blind_rows[#blind_rows + 1] = row({ T('No blinds played yet', 0.3, G.C.UI.TEXT_INACTIVE) }, { padding = 0.1 }) end
 
-  return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.08 }, nodes = {
-    row({ T('Score by ante', 0.4, G.C.WHITE) }),
-    panel(ante_rows),
-    row({ T('Recent blinds (score of every hand)', 0.4, G.C.WHITE) }),
+  return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.06 }, nodes = {
+    panel(stat_table(c.name, stats)),
+    row({ T('Recent blinds', 0.36, G.C.WHITE) }, { padding = 0.02 }),
     panel(blind_rows),
+    row({ T(coop and 'Score each player put in (green = blind beaten).  % = share of the target.'
+      or 'Score in each blind (green = beaten, red = failed).', 0.26, G.C.UI.TEXT_INACTIVE) }),
   } }
 end
 
@@ -462,6 +479,12 @@ function V.open(reopen)
   if not MP.run or G.STAGE ~= G.STAGES.RUN then return end
   V.is_open = true
   if not reopen then V.tab = nil end -- a fresh open starts on Compare
+  -- Pause like Balatro's own Run Info / deck overlays. Besides freezing the run underneath,
+  -- this keeps the viewer's buttons clickable while a round gate holds the controller lock
+  -- (locked input is only accepted while paused). It must happen BEFORE building: anything
+  -- created unpaused doesn't move while paused, so the first tab would never slide into place.
+  local was_paused = G.SETTINGS.paused
+  G.SETTINGS.paused = true
   local saved = G.GAME and G.GAME.pseudorandom and copy_table(G.GAME.pseudorandom)
   local ok, def = pcall(V.definition)
   if saved then G.GAME.pseudorandom = saved end
@@ -469,12 +492,9 @@ function V.open(reopen)
     print('[BalatroMultiplayer] viewer error: ' .. tostring(def))
     MP.toast('Could not open the player viewer', G.C.RED)
     V.is_open = false
+    G.SETTINGS.paused = was_paused
     return
   end
-  -- Pause like Balatro's own Run Info / deck overlays. Besides freezing the run underneath,
-  -- this keeps the viewer's buttons clickable while a round gate holds the controller lock
-  -- (locked input is only accepted while paused).
-  G.SETTINGS.paused = true
   G.FUNCS.overlay_menu { definition = def, config = reopen and { offset = { x = 0, y = 0 } } or nil }
 end
 
