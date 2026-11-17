@@ -471,6 +471,10 @@ function V.open(reopen)
     V.is_open = false
     return
   end
+  -- Pause like Balatro's own Run Info / deck overlays. Besides freezing the run underneath,
+  -- this keeps the viewer's buttons clickable while a round gate holds the controller lock
+  -- (locked input is only accepted while paused).
+  G.SETTINGS.paused = true
   G.FUNCS.overlay_menu { definition = def, config = reopen and { offset = { x = 0, y = 0 } } or nil }
 end
 

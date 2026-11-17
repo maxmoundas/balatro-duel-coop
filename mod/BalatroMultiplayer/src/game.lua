@@ -481,6 +481,15 @@ handlers.game_over = function(m)
   run.finished = true
   run.result = m
   run.points = m.points or run.points
+  if m.mode == 'coop' and m.result == 'lost' and not run.reported_end then
+    -- The team lost, but our own run hasn't ended (we skipped the blind, are waiting at a
+    -- gate, or the message beat our own fail): end it here so we get the game over screen
+    -- too. Drop any held action rather than running it.
+    run.gate = nil
+    run.gate_waiting_for = nil
+    run.show_game_over = true
+    run.game_over_wait = 0
+  end
   MP.release_all_gates()
 end
 
@@ -1005,6 +1014,7 @@ function MP.install_hooks()
     end
     run.coop_waiting = nil
     run.force_fail = nil
+    if not won then run.lost_slot = run.slot end
     record_end(won)
     MP.send({ type = 'blind_end', slot = run.slot, won = won, hands = run.hands, best = run.best })
     return orig.end_round()
@@ -1101,6 +1111,33 @@ local function events_idle()
   return true
 end
 
+-- Co-op team defeat: put this player on the normal game over screen (run stats, Jimbo),
+-- the way end_round does when a run is lost. Waits for a hand in progress to settle.
+local function show_team_game_over(dt)
+  local run = MP.run
+  -- Already lost this blind ourselves (and nobody saved us): end_round is taking us there.
+  local own_loss = run.lost_slot == run.slot and run.team_saved_slot ~= run.slot
+  if G.STAGE ~= G.STAGES.RUN or not G.GAME or run.reported_end or own_loss or G.STATE == G.STATES.GAME_OVER then
+    run.show_game_over = nil
+    return
+  end
+  run.game_over_wait = (run.game_over_wait or 0) + dt
+  local busy = (G.play and G.play.cards[1]) or G.screenwipe or not events_idle()
+  if busy and run.game_over_wait < 3 then return end
+  run.show_game_over = nil
+  run.reported_end = true -- the server already knows; don't send run_over
+  if MP.viewer then MP.viewer.is_open = false end
+  pcall(function()
+    if not G.GAME.won and not G.GAME.seeded and not G.GAME.challenge then
+      G.PROFILES[G.SETTINGS.profile].high_scores.current_streak.amt = 0
+    end
+    G:save_settings()
+    G.FILE_HANDLER.force = true
+  end)
+  G.STATE = G.STATES.GAME_OVER
+  G.STATE_COMPLETE = false
+end
+
 local function startup()
   MP.started_up = true
   if MP.steam then MP.steam.init() end
@@ -1138,6 +1175,7 @@ function MP.update(dt)
   end
 
   local run = MP.run
+  if run and run.show_game_over then show_team_game_over(dt) end
   if not run or run.mode ~= 'coop' or not MP.in_game() then return end
 
   local in_hand = G.STATE == G.STATES.SELECTING_HAND

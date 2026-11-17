@@ -767,6 +767,17 @@ function UI.install_hooks()
     return orig_exit(...)
   end
 
+  -- While a round gate holds the controller lock, unpaused clicks are dropped, so the
+  -- status bar (which opens the player viewer) needs to be let through by hand.
+  local orig_press = Controller.L_cursor_press
+  function Controller:L_cursor_press(x, y)
+    if self.locked and not G.SETTINGS.paused and not G.OVERLAY_MENU and UI.status_bar_hit(self) then
+      if MP.viewer then MP.viewer.open() end
+      return
+    end
+    return orig_press(self, x, y)
+  end
+
   local orig_key = love.keypressed
   love.keypressed = function(key, ...)
     if key == 'f8' and G.STAGE == G.STAGES.MAIN_MENU and not G.OVERLAY_MENU then UI.open() return end
@@ -899,6 +910,19 @@ local function build_bar(pills)
     } },
     config = { align = 'tmi', offset = { x = 0, y = -0.62 }, major = G.ROOM_ATTACH, bond = 'Weak' },
   }
+end
+
+-- Is the cursor over the status bar, with only our gate lock holding input?
+function UI.status_bar_hit(ctrl)
+  if not (MP.run and G.STAGE == G.STAGES.RUN) then return false end
+  for k, v in pairs(ctrl.locks) do
+    if v and k ~= 'mp_gate' then return false end
+  end
+  local cur = slots.bar
+  local box = cur and cur.box
+  if not box or box.REMOVED or not G.CURSOR then return false end
+  local ok, hit = pcall(box.collides_with_point, box, G.CURSOR.T)
+  return ok and hit or false
 end
 
 -- Notices (waiting for players, end of run) -----------------------------------------
