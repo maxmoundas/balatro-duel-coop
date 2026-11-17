@@ -5,6 +5,10 @@ through Steam itself: no server, port forwarding, tunnel or website. Each player
 copy of Balatro, so everything plays exactly like the real game. Works on **Windows and Mac**,
 and Windows and Mac players can play together.
 
+- **Rules and edge cases:** [How multiplayer plays](docs/HOW-IT-PLAYS.md)
+- **Feedback, ideas and bug reports:** [open an issue](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose)
+  (see [Feedback](#feedback))
+
 ## Quick start
 
 ### What you need
@@ -115,8 +119,14 @@ MULTIPLAYER → **Advanced**. Leave the field empty to go back to your Steam nam
   - Mac: `~/Library/Application Support/Balatro/Mods/lovely/log/`. In Finder, press ⇧⌘G and
     paste that path.
 - **Other mods:** turn off mods that change scoring, like Talisman. They aren't supported yet.
+- **Still stuck, or found a bug?** [Report it](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose)
+  and attach that log file.
 
 ## Modes
+
+This is a summary. [How multiplayer plays](docs/HOW-IT-PLAYS.md) has the full rules, including
+what you see while waiting for other players and how cards like Mr. Bones, Hieroglyph and
+Petroglyph work in multiplayer.
 
 ### Duel (1v1)
 - Both players get the **same seed, deck and stake**.
@@ -283,8 +293,6 @@ The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_bli
 `G.FUNCS.go_to_menu` (forfeit).
 
 ## Known limitations
-- Not fully tested in-game yet. The rules (relay.lua) are covered by 29 tests, the Steam calls
-  were checked against a real account, and the Lua is syntax-checked.
 - Joining an in-game hosted lobby needs you to be Steam friends with the host.
 - A multiplayer run can't be resumed after Balatro is closed.
 - In Co-op, the blind-select screen shows the unscaled requirement. The scaled number appears
@@ -298,6 +306,15 @@ The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_bli
 - **Alone:** `node tools/test-bot.js CODE` adds a stand-in second player to your lobby. It
   connects to your in-game server on this PC and shadows your blinds, hands and scores. It tests
   the game rules and menus, not the Steam connection.
+
+## Feedback
+
+Feedback is very welcome, whether it's a bug, an idea, or just how a game went.
+
+- **[Open an issue](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose)** and
+  choose **Bug report** or **Feedback or idea**. This needs a free GitHub account.
+- **No GitHub account?** Reply in the mod's Steam Community discussion thread instead.
+- **Pull requests** are welcome too. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

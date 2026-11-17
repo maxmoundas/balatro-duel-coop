@@ -1,0 +1,34 @@
+name: Feedback or idea
+description: Suggestions, feature requests, balance thoughts, or anything you liked or didn't.
+labels: [feedback]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        All feedback is welcome: big ideas, small annoyances, or just how a game went.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of feedback is this?
+      options:
+        - Feature request / idea
+        - Rules or balance
+        - Interface / how it looks
+        - General feedback
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      description: What would you like to see, or what would you change? If it's an idea, what problem would it solve for you?
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which mode does it relate to?
+      options:
+        - Duel
+        - Co-op
+        - Both / neither

@@ -1,0 +1,67 @@
+name: Bug report
+description: Something broke, crashed, or didn't behave the way the rules say it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this! The more detail, the easier it is to fix.
+        If you're not sure whether it's a bug, check [How multiplayer plays](https://github.com/maxmoundas/balatro-multiplayer/blob/main/docs/HOW-IT-PLAYS.md) first.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to see instead?
+      placeholder: "After my teammate used Hieroglyph, my blind select screen still showed Ante 4..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be reproduced?
+      description: The steps leading up to it, as best you remember. Jokers, vouchers or boss blinds involved are especially useful.
+      placeholder: |
+        1. Co-op, 3 players, Red Deck, White Stake
+        2. Ante 3 boss (The Wall)
+        3. ...
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Duel
+        - Co-op
+        - Lobby / invites / joining (before the game starts)
+        - Installer
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Your platform
+      multiple: true
+      options:
+        - Windows
+        - Mac
+    validations:
+      required: true
+  - type: input
+    id: seed
+    attributes:
+      label: Seed (optional)
+      description: Shown in the message when the game starts, and in Run Info.
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file (optional, but very helpful)
+      description: |
+        Drag the newest file from Lovely's log folder into this box:
+        - Windows: `%APPDATA%\Balatro\Mods\lovely\log\`
+        - Mac: `~/Library/Application Support/Balatro/Mods/lovely/log/`
+        Screenshots are welcome too.
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods installed (optional)
+      description: Anything besides Steamodded and this mod.
