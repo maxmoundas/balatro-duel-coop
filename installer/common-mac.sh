@@ -14,7 +14,8 @@ BALATRO_DATA="$HOME/Library/Application Support/Balatro"
 MODS_DIR="$BALATRO_DATA/Mods"
 STEAM_DIR="$HOME/Library/Application Support/Steam"
 # First line after the shebang of the launcher we put in place of Balatro's executable.
-LAUNCHER_MARK='# balatro-multiplayer lovely launcher'
+LAUNCHER_MARK='# balatro-duel-coop lovely launcher'
+LEGACY_LAUNCHER_MARK='# balatro-multiplayer lovely launcher' # written by builds before the rename
 
 # Questions are read from the terminal, so they work under `curl ... | bash` too.
 ask() { # prompt -> answer on stdout
@@ -84,13 +85,13 @@ find_smods() {
   return 0
 }
 
-is_launcher() { [ -f "$1" ] && head -n 2 "$1" 2>/dev/null | grep -qF "$LAUNCHER_MARK"; }
+is_launcher() { [ -f "$1" ] && head -n 2 "$1" 2>/dev/null | grep -qF -e "$LAUNCHER_MARK" -e "$LEGACY_LAUNCHER_MARK"; }
 is_macho() { file -b "$1" 2>/dev/null | grep -q 'Mach-O'; }
 
 write_launcher() { # path
   cat > "$1" <<'EOF'
 #!/bin/bash
-# balatro-multiplayer lovely launcher
+# balatro-duel-coop lovely launcher
 # Starts Balatro with Lovely (the mod loader). Installed by Balatro Duel & Co-op's
 # install-mac.sh in place of Balatro's executable; the real one is love-original.
 # To undo, run uninstall-mac.sh (or Steam > Balatro > Properties > Installed Files >

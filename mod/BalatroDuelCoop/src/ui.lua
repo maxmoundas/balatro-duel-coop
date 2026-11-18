@@ -444,7 +444,7 @@ function UI.update()
     UI.refresh()
   end
   local ok, err = pcall(UI.update_hud)
-  if not ok and not UI.hud_err then UI.hud_err = true; print('[BalatroMultiplayer] HUD error: ' .. tostring(err)) end
+  if not ok and not UI.hud_err then UI.hud_err = true; print('[BalatroDuelCoop] HUD error: ' .. tostring(err)) end
   -- Friends' invites arrive via their Steam rich presence: check every few seconds on the main menu.
   if G.STAGE == G.STAGES.MAIN_MENU and MP.steam and MP.steam.ok and now >= (UI.next_invite_poll or 0) then
     UI.next_invite_poll = now + 5
@@ -755,7 +755,7 @@ function UI.install_hooks()
         } }
       end
     end)
-    if not ok then print('[BalatroMultiplayer] could not add main menu button; press F8 to open') end
+    if not ok then print('[BalatroDuelCoop] could not add main menu button; press F8 to open') end
     return t
   end
 
@@ -824,7 +824,7 @@ local function sync(name, sig, build)
   if cur then drop(cur.box) end
   local ok, box = pcall(build)
   if not ok then
-    print('[BalatroMultiplayer] HUD error (' .. name .. '): ' .. tostring(box))
+    print('[BalatroDuelCoop] HUD error (' .. name .. '): ' .. tostring(box))
     box = nil
   end
   slots[name] = { box = box, sig = sig } -- a failed build is not retried until the content changes
@@ -1063,7 +1063,7 @@ local function sync_toasts()
     if box and box.REMOVED then box = nil end
     if not box and not t.failed then
       local ok, res = pcall(build_toast, t, y, t.t < 0.3)
-      if ok then box = res else t.failed = true; print('[BalatroMultiplayer] toast error: ' .. tostring(res)) end
+      if ok then box = res else t.failed = true; print('[BalatroDuelCoop] toast error: ' .. tostring(res)) end
       UI.toast_boxes[t] = box
     end
     if box then

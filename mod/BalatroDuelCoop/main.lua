@@ -2,7 +2,7 @@
 -- Requires Steamodded (which requires Lovely).
 
 MP = MP or {}
-MP.VERSION = '0.2.0'
+MP.VERSION = '1.0.0'
 MP.PROTOCOL = 4 -- must match Relay.PROTOCOL_VERSION in src/relay.lua
 MP.mod = SMODS.current_mod
 MP.config = MP.mod.config or {}
@@ -30,7 +30,7 @@ MP.config.host_port = tostring(MP.config.host_port)
 
 local function load(path)
   local chunk, err = SMODS.load_file(path)
-  if not chunk then error('[BalatroMultiplayer] failed to load ' .. path .. ': ' .. tostring(err)) end
+  if not chunk then error('[BalatroDuelCoop] failed to load ' .. path .. ': ' .. tostring(err)) end
   return chunk()
 end
 

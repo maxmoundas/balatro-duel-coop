@@ -48,7 +48,7 @@ local function host_packet(from, kind, body)
       peer = { id = from }
       P2P.peers[from] = peer
       MP.host.cmd:push('P|open|' .. from)
-      print('[BalatroMultiplayer] Steam player connected: ' .. from)
+      print('[BalatroDuelCoop] Steam player connected: ' .. from)
       if MP.UI then MP.UI.refresh() end
     end
     peer.last = love.timer.getTime()

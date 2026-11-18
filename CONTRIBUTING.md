@@ -5,7 +5,7 @@ went.
 
 ## Giving feedback
 
-- **On GitHub:** [open an issue](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose)
+- **On GitHub:** [open an issue](https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose)
   and pick **Bug report** or **Feedback or idea**. You'll need a free GitHub account.
 - **No GitHub account?** Reply in the Steam Community discussion thread for the mod. Feedback
   there is read too.
@@ -26,7 +26,7 @@ PRs are welcome. For anything larger than a small fix, please open an issue firs
 on the approach.
 
 - The rules (lobbies, round gates, points, win conditions) live in
-  `mod/BalatroMultiplayer/src/relay.lua`, which runs both in-game and in the Node server. Run the
+  `mod/BalatroDuelCoop/src/relay.lua`, which runs both in-game and in the Node server. Run the
   tests with `cd server && npm install && npm test`.
 - `node tools/test-bot.js CODE` adds a stand-in second player to your lobby for testing alone.
 - [TESTING.md](TESTING.md) has a checklist for testing with two PCs and two Steam accounts.

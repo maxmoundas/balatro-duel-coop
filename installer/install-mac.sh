@@ -4,8 +4,8 @@
 # Already-installed Lovely/Steamodded are left alone.
 #
 # Run it in Terminal, either straight from the web:
-#   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/install-mac.sh | bash
-# or from the unzipped BalatroMultiplayer-Setup folder:
+#   curl -fsSL https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/install-mac.sh | bash
+# or from the unzipped BalatroDuelCoop-Setup folder:
 #   bash files/install-mac.sh
 #
 # On macOS, Lovely is loaded by a small launcher that takes the place of the game's
@@ -19,7 +19,7 @@ set -euo pipefail
 LOVELY_VERSION='v0.10.0'
 SMODS_URL='https://github.com/Steamodded/smods/archive/refs/tags/26.1002.0.zip'
 # BMP_PACKAGE_URL overrides where the package comes from (e.g. file:///path/to/zip for testing).
-PACKAGE_URL="${BMP_PACKAGE_URL:-https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/BalatroMultiplayer-Setup.zip}"
+PACKAGE_URL="${BMP_PACKAGE_URL:-https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/BalatroDuelCoop-Setup.zip}"
 
 # Run from the unzipped package, or piped from curl? In the second case, download the
 # package and run the copy of this script inside it.
@@ -91,11 +91,16 @@ main() {
   fi
 
   step 'Balatro Duel & Co-op mod'
-  local src="$here/BalatroMultiplayer"
-  [ -f "$src/main.lua" ] || die 'BalatroMultiplayer folder is missing next to this installer. Unzip the whole package first.'
-  rm -rf "$MODS_DIR/BalatroMultiplayer"
-  cp -R "$src" "$MODS_DIR/BalatroMultiplayer"
-  xattr -dr com.apple.quarantine "$MODS_DIR/BalatroMultiplayer" "$MODS_DIR/smods" 2>/dev/null || true
+  local src="$here/BalatroDuelCoop"
+  [ -f "$src/main.lua" ] || die 'BalatroDuelCoop folder is missing next to this installer. Unzip the whole package first.'
+  rm -rf "$MODS_DIR/BalatroDuelCoop"
+  cp -R "$src" "$MODS_DIR/BalatroDuelCoop"
+  xattr -dr com.apple.quarantine "$MODS_DIR/BalatroDuelCoop" "$MODS_DIR/smods" 2>/dev/null || true
+  # Builds before the rename installed to Mods/BalatroMultiplayer; two copies would both load.
+  if [ -d "$MODS_DIR/BalatroMultiplayer" ]; then
+    rm -rf "$MODS_DIR/BalatroMultiplayer"
+    done_ 'removed old BalatroMultiplayer folder'
+  fi
   done_ 'installed'
 
   printf '\n%sAll done! Launch Balatro from Steam and click MULTIPLAYER on the main menu.%s\n' "$GREEN" "$RESET"

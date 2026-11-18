@@ -6,7 +6,7 @@ copy of Balatro, so everything plays exactly like the real game. Works on **Wind
 and Windows and Mac players can play together.
 
 - **Rules and edge cases:** [How multiplayer plays](docs/HOW-IT-PLAYS.md)
-- **Feedback, ideas and bug reports:** [open an issue](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose)
+- **Feedback, ideas and bug reports:** [open an issue](https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose)
   (see [Feedback](#feedback))
 
 ## Quick start
@@ -22,7 +22,7 @@ and Windows and Mac players can play together.
 
 ### Install on Windows
 1. **Download the installer:**
-   **[BalatroMultiplayer-Setup.zip](https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/BalatroMultiplayer-Setup.zip)**
+   **[BalatroDuelCoop-Setup.zip](https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/BalatroDuelCoop-Setup.zip)**
    (this link always gives you the latest version).
    - You don't need the green **Code** button or the rest of this repo. The zip has everything.
 2. **Unzip it:** right-click the zip → **Extract All** → **Extract**. Running `Install.bat`
@@ -49,7 +49,7 @@ and Windows and Mac players can play together.
    *Terminal*).
 3. **Paste this line and press Enter:**
    ```sh
-   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/install-mac.sh | bash
+   curl -fsSL https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/install-mac.sh | bash
    ```
    - It installs the same three things: **Lovely**, **Steamodded** and this mod. Anything
      already installed is skipped.
@@ -57,7 +57,7 @@ and Windows and Mac players can play together.
      Manage → Browse local files, drag the folder that opens into the Terminal window, and
      press Enter.
    - Prefer not to paste commands? Download and unzip the
-     [zip](https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/BalatroMultiplayer-Setup.zip)
+     [zip](https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/BalatroDuelCoop-Setup.zip)
      instead, type `bash ` (with a space) in Terminal, drag `install-mac.sh` from the unzipped
      zip's `files` folder into the window, and press Enter.
 4. **Launch Balatro from Steam** as usual. The **MULTIPLAYER** button appears on the main menu.
@@ -80,7 +80,7 @@ of the mod and leaves Lovely and Steamodded as they are.
    folder, download and extract the zip again.
    **Mac:** run this in Terminal:
    ```sh
-   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/uninstall-mac.sh | bash
+   curl -fsSL https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/uninstall-mac.sh | bash
    ```
 3. It removes this mod and its settings, then asks whether to also remove **Lovely and
    Steamodded**. Answer **N** (the default) if you use any other mods, because they need them.
@@ -130,7 +130,7 @@ MULTIPLAYER → **Advanced**. Leave the field empty to go back to your Steam nam
   - Mac: `~/Library/Application Support/Balatro/Mods/lovely/log/`. In Finder, press ⇧⌘G and
     paste that path.
 - **Other mods:** turn off mods that change scoring, like Talisman. They aren't supported yet.
-- **Still stuck, or found a bug?** [Report it](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose)
+- **Still stuck, or found a bug?** [Report it](https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose)
   and attach that log file.
 
 ## Modes
@@ -194,7 +194,7 @@ Use this only if the installer doesn't work for you. These steps are for Windows
 2. Install **Steamodded**: download the latest release from
    https://github.com/Steamodded/smods/releases and extract it into `%APPDATA%\Balatro\Mods\`.
    You should end up with `Mods\smods-*\`.
-3. Install this mod: copy the `BalatroMultiplayer` folder into `%APPDATA%\Balatro\Mods\`. It's
+3. Install this mod: copy the `BalatroDuelCoop` folder into `%APPDATA%\Balatro\Mods\`. It's
    inside the installer zip, or in `mod\` in this repo. From a clone of the repo, you can run
    `.\install-mod.ps1` instead.
 4. Launch Balatro. A **MULTIPLAYER** button appears next to Play on the main menu. If it doesn't,
@@ -241,13 +241,15 @@ Steam ID (`mp_joining`) so their game knows to accept your connection.
 You don't need this section to play. It explains where the download in
 [Quick start](#quick-start) comes from.
 
-**Automatic:** on every push to `main` that changes `mod/`, `installer/` or the build script,
-the GitHub Action `.github/workflows/installer.yml` builds the zip on a Windows machine. It then
-uploads it, together with the Mac scripts (`install-mac.sh`, `uninstall-mac.sh`,
-`common-mac.sh`), to the **`latest`** release, replacing the old files, and moves the `latest` tag
-to that commit. The download link stays the same, so players always get the newest build. You can also
-run it by hand from the repo's **Actions** tab → **Build installer** → **Run workflow**. For
-players to download the zip without signing in, the repo must be public.
+**Releases:** set `"version"` in `mod/BalatroDuelCoop/BalatroDuelCoop.json` (and `MP.VERSION` in
+`main.lua`, and `version_number` in `publish/thunderstore/manifest.json`), commit, then push a
+matching tag: `git tag v1.0.0 && git push origin v1.0.0`. The GitHub Action
+`.github/workflows/installer.yml` builds everything on a Windows machine and publishes a release
+for that tag, marked **Latest**, with the setup zip, the mod-only zip
+(`BalatroDuelCoop.zip`), the Thunderstore zip and the Mac scripts (`install-mac.sh`,
+`uninstall-mac.sh`, `common-mac.sh`). The `releases/latest/download/...` links stay the same, so
+players always get the newest release. Pushes to `main` run the same build as a check without
+publishing anything. For players to download the zip without signing in, the repo must be public.
 
 **Locally:**
 
@@ -258,16 +260,18 @@ players to download the zip without signing in, the repo must be public.
 ./tools/build-friend-package.sh       # Mac
 ```
 
-Either way, you get `dist\BalatroMultiplayer-Setup.zip`, one package for both platforms.
+Either way, you get `dist\BalatroDuelCoop-Setup.zip`, one package for both platforms, plus
+`dist\BalatroDuelCoop.zip` (the mod folder only) and `dist\BalatroDuelCoop-Thunderstore.zip`.
+The listing files for Thunderstore and the Balatro Mod Index live in `publish/`.
 `Install.bat` (Windows) and `install-mac.sh` (Mac) find Balatro through Steam's library list and
 install Lovely v0.10.0 and Steamodded 26.1002.0 (the tested versions), skipping either one if it's
 already installed. Then they install the mod. To install your working copy on a Mac, run
-`./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/files/install-mac.sh`.
+`./tools/build-friend-package.sh && bash dist/BalatroDuelCoop-Setup/files/install-mac.sh`.
 
 ## Dedicated server (optional)
 
 Running a separate server isn't needed, but you can, for example to keep one always online.
-The Node server runs the same rules file as the game (`mod/BalatroMultiplayer/src/relay.lua`,
+The Node server runs the same rules file as the game (`mod/BalatroDuelCoop/src/relay.lua`,
 through the fengari Lua VM):
 
 ```sh
@@ -286,14 +290,14 @@ server under **Advanced**, or you can build it into the friend package with
 
 | Piece | File |
 |---|---|
-| Rules: lobbies, gates, points, win conditions, invites | `mod/BalatroMultiplayer/src/relay.lua` |
-| In-game server (LÖVE thread + luasocket) | `mod/BalatroMultiplayer/src/host_server.lua`, `host.lua` |
-| Steam P2P transport (host bridge + joining) | `mod/BalatroMultiplayer/src/p2p.lua` |
-| Client connection (TCP thread or Steam P2P) | `mod/BalatroMultiplayer/src/net.lua` |
-| Steam friends, invites, rich presence (FFI, Windows + Mac) | `mod/BalatroMultiplayer/src/steam.lua` |
+| Rules: lobbies, gates, points, win conditions, invites | `mod/BalatroDuelCoop/src/relay.lua` |
+| In-game server (LÖVE thread + luasocket) | `mod/BalatroDuelCoop/src/host_server.lua`, `host.lua` |
+| Steam P2P transport (host bridge + joining) | `mod/BalatroDuelCoop/src/p2p.lua` |
+| Client connection (TCP thread or Steam P2P) | `mod/BalatroDuelCoop/src/net.lua` |
+| Steam friends, invites, rich presence (FFI, Windows + Mac) | `mod/BalatroDuelCoop/src/steam.lua` |
 | Installers (Windows `.bat`/`.ps1`, Mac `*-mac.sh`) | `installer/` |
-| Game hooks, run state, message handling | `mod/BalatroMultiplayer/src/game.lua` |
-| Menus + HUD / player viewer | `mod/BalatroMultiplayer/src/ui.lua`, `viewer.lua` |
+| Game hooks, run state, message handling | `mod/BalatroDuelCoop/src/game.lua` |
+| Menus + HUD / player viewer | `mod/BalatroDuelCoop/src/ui.lua`, `viewer.lua` |
 | Standalone server (runs relay.lua via fengari) | `server/src/server.js`, `relay-host.js` |
 
 The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_blind`,
@@ -322,7 +326,7 @@ The mod hooks these vanilla functions: `G.FUNCS.select_blind`, `G.FUNCS.skip_bli
 
 Feedback is very welcome, whether it's a bug, an idea, or just how a game went.
 
-- **[Open an issue](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose)** and
+- **[Open an issue](https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose)** and
   choose **Bug report** or **Feedback or idea**. This needs a free GitHub account.
 - **No GitHub account?** Reply in the mod's Steam Community discussion thread instead.
 - **Pull requests** are welcome too. See [CONTRIBUTING.md](CONTRIBUTING.md).

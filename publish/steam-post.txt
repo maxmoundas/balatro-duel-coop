@@ -1,0 +1,35 @@
+TITLE:
+I made Balatro Duel & Co-op, a multiplayer mod for Balatro: Co-op for up to 4 players, and 1v1 Duels
+
+BODY (Steam uses BBCode, so paste this as is):
+
+I recently finished Completion++ on both the mobile and Steam versions of Balatro. I've loved this game since the first time I played it, and I've gotten my family hooked on it too.
+
+Having that much love for the game made me want to play it with other people. Watching someone else play (or having them watch you) only goes so far, so I made Balatro Duel & Co-op, a mod that adds multiplayer to Balatro.
+
+[h2]Two modes[/h2]
+[list]
+[*][b]Co-op (2–4 players):[/b] everyone plays their own run on the same seed, but your scores are pooled into one shared blind. Blind requirements scale with the number of players, and if you run out of hands, your teammates can still carry you through. Beat Ante 8 together.
+[*][b]Duel (1v1):[/b] you and your opponent play the same seed side by side. Each blind awards a point for the best single hand and a point for beating it in the fewest hands. Outlast your opponent, or outscore them if you both make it to the end.
+[/list]
+
+You play at your own pace within each round, and the game keeps everyone in sync between rounds. At any point you can press Tab to look at the other players' jokers, deck and hand levels.
+
+[h2]How to play[/h2]
+[list]
+[*]Works on [b]Windows and Mac[/b], and Windows and Mac players can play together.
+[*]Multiplayer goes through [b]Steam friend invites[/b]. There's no server to set up and no port forwarding.
+[*]Everyone needs their own copy of Balatro and the mod installed. The installer sets up everything else for you.
+[/list]
+
+Download and install instructions: [url=https://github.com/maxmoundas/balatro-duel-coop]github.com/maxmoundas/balatro-duel-coop[/url]
+
+The full rules for each mode are written up here: [url=https://github.com/maxmoundas/balatro-duel-coop/blob/main/docs/HOW-IT-PLAYS.md]How multiplayer plays[/url]
+
+[h2]Feedback welcome[/h2]
+I did my best to make the interface feel like part of the game, but I'm open to feedback. If you have a GitHub account, [url=https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose]open an issue[/url].
+
+[h2]Thanks[/h2]
+A big thank you to the people behind the mods this one is built on: [url=https://github.com/ethangreen-dev/lovely-injector]Lovely[/url] by ethangreen-dev, and the [url=https://github.com/Steamodded/smods]Steamodded[/url] team. This mod couldn't exist without their work.
+
+[i]This is an unofficial fan mod and isn't affiliated with LocalThunk or Playstack.[/i]

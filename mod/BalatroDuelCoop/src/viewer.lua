@@ -36,7 +36,7 @@ local function protected(fn)
   local ok, res = pcall(fn)
   if saved then G.GAME.pseudorandom = saved end
   if not ok then
-    print('[BalatroMultiplayer] viewer error: ' .. tostring(res))
+    print('[BalatroDuelCoop] viewer error: ' .. tostring(res))
     return { n = G.UIT.ROOT, config = { align = 'cm', colour = G.C.CLEAR, padding = 0.2 }, nodes = {
       { n = G.UIT.T, config = { text = 'Could not display this view', scale = 0.4, colour = G.C.RED } },
     } }
@@ -488,7 +488,7 @@ function V.open(reopen)
   local ok, def = pcall(V.definition)
   if saved then G.GAME.pseudorandom = saved end
   if not ok then
-    print('[BalatroMultiplayer] viewer error: ' .. tostring(def))
+    print('[BalatroDuelCoop] viewer error: ' .. tostring(def))
     MP.toast('Could not open the player viewer', G.C.RED)
     V.is_open = false
     G.SETTINGS.paused = was_paused

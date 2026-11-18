@@ -510,7 +510,7 @@ local function on_message(m)
   local h = handlers[m.type]
   if h then
     local ok, err = pcall(h, m)
-    if not ok then print('[BalatroMultiplayer] handler error for ' .. tostring(m.type) .. ': ' .. tostring(err)) end
+    if not ok then print('[BalatroDuelCoop] handler error for ' .. tostring(m.type) .. ': ' .. tostring(err)) end
   end
 end
 

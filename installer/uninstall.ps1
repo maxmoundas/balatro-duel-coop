@@ -33,16 +33,18 @@ try {
   Wait-BalatroClosed
 
   Step 'Balatro Duel & Co-op mod'
-  $mod = Join-Path $ModsDir 'BalatroMultiplayer'
-  if (Test-Path $mod) {
-    Remove-Item -Recurse -Force $mod
-    Done 'removed'
-  } else {
-    Done 'not installed'
+  # BalatroMultiplayer is the folder name used before the rename.
+  $found = $false
+  foreach ($name in 'BalatroDuelCoop', 'BalatroMultiplayer') {
+    $mod = Join-Path $ModsDir $name
+    if (Test-Path $mod) { Remove-Item -Recurse -Force $mod; $found = $true }
   }
-  # Settings (name, server) saved by Steamodded.
-  $cfg = Join-Path $env:APPDATA 'Balatro\config\BalatroMultiplayerDuelCoop.jkr'
-  if (Test-Path $cfg) { Remove-Item -Force $cfg; Done 'settings removed' }
+  if ($found) { Done 'removed' } else { Done 'not installed' }
+  # Settings (name, server) saved by Steamodded, under the current and pre-rename mod ids.
+  foreach ($id in 'BalatroDuelCoop', 'BalatroMultiplayerDuelCoop') {
+    $cfg = Join-Path $env:APPDATA "Balatro\config\$id.jkr"
+    if (Test-Path $cfg) { Remove-Item -Force $cfg; Done 'settings removed' }
+  }
 
   # Lovely + Steamodded: optional, other mods depend on them.
   $smods = @()

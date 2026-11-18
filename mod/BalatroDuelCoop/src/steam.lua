@@ -84,7 +84,7 @@ function Steam.init()
     local utils = lib.SteamAPI_SteamUtils_v010()
     Steam.app_id = utils ~= nil and tonumber(lib.SteamAPI_ISteamUtils_GetAppID(utils)) or 2379780
   end)
-  if not ok then print('[BalatroMultiplayer] Steam friends unavailable: ' .. tostring(err)) end
+  if not ok then print('[BalatroDuelCoop] Steam friends unavailable: ' .. tostring(err)) end
   Steam.ok = ok
   return ok
 end
@@ -244,7 +244,7 @@ function Steam.p2p_init()
   end)
   if not ok then
     Steam.net_if = false
-    print('[BalatroMultiplayer] Steam networking unavailable: ' .. tostring(err))
+    print('[BalatroDuelCoop] Steam networking unavailable: ' .. tostring(err))
   end
   return ok
 end

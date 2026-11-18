@@ -22,7 +22,7 @@ second laptop (account B).
    ```powershell
    .\tools\build-friend-package.ps1
    ```
-   Copy `dist\BalatroMultiplayer-Setup.zip` to PC B, by USB stick, cloud drive or email.
+   Copy `dist\BalatroDuelCoop-Setup.zip` to PC B, by USB stick, cloud drive or email.
 4. On PC B, **unzip** the whole file (right-click → Extract All), close Balatro, and double-click
    **Install.bat**.
    - If Windows SmartScreen warns you, click **More info → Run anyway**.
@@ -38,7 +38,7 @@ second laptop (account B).
 To test your working copy rather than the published build, build the package on the Mac and run
 it from there:
 ```sh
-./tools/build-friend-package.sh && bash dist/BalatroMultiplayer-Setup/files/install-mac.sh
+./tools/build-friend-package.sh && bash dist/BalatroDuelCoop-Setup/files/install-mac.sh
 ```
 Then launch Balatro from Steam as usual. A Windows + Mac pair is worth testing in both directions
 (Mac hosts, then Windows hosts), including step 4 below (invite while the game is closed), since
@@ -111,7 +111,7 @@ path.
 - **The invite never shows up on PC B:** open PC B's MULTIPLAYER menu, since invites are checked
   every 5 seconds there. Make sure PC B's account isn't set to Invisible.
 - **Logs:** each PC writes a log to `%APPDATA%\Balatro\Mods\lovely\log\` (newest file). Search for
-  `BalatroMultiplayer`. Lines like `Steam player connected: <id>` (on the host) or
+  `BalatroDuelCoop`. Lines like `Steam player connected: <id>` (on the host) or
   `Steam networking unavailable` show what happened. Send me the newest log from **both** PCs
   along with a short description and screenshots.
 - **The MULTIPLAYER button is missing on PC B:** re-run `Install.bat`. If Balatro shows a

@@ -217,4 +217,4 @@ it would be saved. A player is saved if they have a Mr. Bones that isn't debuffe
   message telling you to update.
 
 Found something that behaves differently from this page? Please
-[report it](https://github.com/maxmoundas/balatro-multiplayer/issues/new/choose).
+[report it](https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose).

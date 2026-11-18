@@ -61,11 +61,14 @@ try {
   }
 
   Step 'Balatro Duel & Co-op mod'
-  $src = Join-Path $PSScriptRoot 'BalatroMultiplayer'
-  if (-not (Test-Path (Join-Path $src 'main.lua'))) { throw 'BalatroMultiplayer folder is missing next to this installer. Unzip the whole package first.' }
-  $dst = Join-Path $mods 'BalatroMultiplayer'
+  $src = Join-Path $PSScriptRoot 'BalatroDuelCoop'
+  if (-not (Test-Path (Join-Path $src 'main.lua'))) { throw 'BalatroDuelCoop folder is missing next to this installer. Unzip the whole package first.' }
+  $dst = Join-Path $mods 'BalatroDuelCoop'
   if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
   Copy-Item -Recurse $src $dst
+  # Builds before the rename installed to Mods\BalatroMultiplayer; two copies would both load.
+  $legacy = Join-Path $mods 'BalatroMultiplayer'
+  if (Test-Path $legacy) { Remove-Item -Recurse -Force $legacy; Done 'removed old BalatroMultiplayer folder' }
   Done 'installed'
 
   Write-Host ''

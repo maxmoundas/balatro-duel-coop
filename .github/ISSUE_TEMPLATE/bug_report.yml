@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report this! The more detail, the easier it is to fix.
-        If you're not sure whether it's a bug, check [How multiplayer plays](https://github.com/maxmoundas/balatro-multiplayer/blob/main/docs/HOW-IT-PLAYS.md) first.
+        If you're not sure whether it's a bug, check [How multiplayer plays](https://github.com/maxmoundas/balatro-duel-coop/blob/main/docs/HOW-IT-PLAYS.md) first.
   - type: textarea
     id: what-happened
     attributes:

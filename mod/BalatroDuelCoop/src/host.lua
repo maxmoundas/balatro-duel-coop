@@ -10,7 +10,7 @@ local function read_mod_file(rel)
     local s = NFS.read(MP.mod.path .. rel)
     if s then return s end
   end
-  return love.filesystem.read('Mods/BalatroMultiplayer/' .. rel)
+  return love.filesystem.read('Mods/BalatroDuelCoop/' .. rel)
 end
 
 function Host.port() return tonumber(MP.config.host_port) or 8788 end
@@ -85,7 +85,7 @@ function Host.update(dt)
       if MP.on_host_failed then MP.on_host_failed(msg) end
       refresh = true
     elseif e:sub(1, 4) == 'log|' then
-      print('[BalatroMultiplayer host] ' .. e:sub(5))
+      print('[BalatroDuelCoop host] ' .. e:sub(5))
     elseif e == 'stopped' then
       Host.thread = nil
     end

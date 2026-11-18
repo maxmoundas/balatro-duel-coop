@@ -1,7 +1,7 @@
 # Copies the mod into Balatro's Mods folder (requires Lovely + Steamodded already installed).
-$src = Join-Path $PSScriptRoot 'mod\BalatroMultiplayer'
+$src = Join-Path $PSScriptRoot 'mod\BalatroDuelCoop'
 $mods = Join-Path $env:APPDATA 'Balatro\Mods'
-$dst = Join-Path $mods 'BalatroMultiplayer'
+$dst = Join-Path $mods 'BalatroDuelCoop'
 
 if (-not (Test-Path $mods)) { New-Item -ItemType Directory -Force $mods | Out-Null }
 if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }

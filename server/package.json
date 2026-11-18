@@ -1,5 +1,5 @@
 {
-  "name": "balatro-multiplayer-server",
+  "name": "balatro-duel-coop-server",
   "version": "0.1.0",
   "private": true,
   "description": "Relay server for the Balatro Duel & Co-op mod.",

@@ -5,7 +5,7 @@ WORKDIR /app
 COPY server/package.json server/package-lock.json ./server/
 RUN cd server && npm ci --omit=dev
 COPY server/src ./server/src
-COPY mod/BalatroMultiplayer/src/relay.lua mod/BalatroMultiplayer/src/json.lua ./mod/BalatroMultiplayer/src/
+COPY mod/BalatroDuelCoop/src/relay.lua mod/BalatroDuelCoop/src/json.lua ./mod/BalatroDuelCoop/src/
 ENV PORT=8788
 EXPOSE 8788
 USER node

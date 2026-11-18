@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { lua, lauxlib, lualib, to_luastring } = require('fengari');
 
-const LUA_DIR = process.env.RELAY_LUA_DIR || path.join(__dirname, '..', '..', 'mod', 'BalatroMultiplayer', 'src');
+const LUA_DIR = process.env.RELAY_LUA_DIR || path.join(__dirname, '..', '..', 'mod', 'BalatroDuelCoop', 'src');
 
 const GLUE = `
 local json = load_module('json')

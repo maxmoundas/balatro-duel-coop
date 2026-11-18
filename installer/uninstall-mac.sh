@@ -4,8 +4,8 @@
 # remove Lovely and Steamodded (the mod loaders), which other mods may still need.
 # Never touches your save files.
 #
-#   curl -fsSL https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/uninstall-mac.sh | bash
-# or, from the unzipped BalatroMultiplayer-Setup folder:
+#   curl -fsSL https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/uninstall-mac.sh | bash
+# or, from the unzipped BalatroDuelCoop-Setup folder:
 #   bash files/uninstall-mac.sh
 
 set -euo pipefail
@@ -17,7 +17,7 @@ else
   # Piped from curl: fetch the shared helpers from the same release.
   tmp="$(mktemp -d -t bmp)"
   trap 'rm -rf "$tmp"' EXIT
-  curl -fsSL -o "$tmp/common-mac.sh" 'https://github.com/maxmoundas/balatro-multiplayer/releases/latest/download/common-mac.sh' \
+  curl -fsSL -o "$tmp/common-mac.sh" 'https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/common-mac.sh' \
     || { echo 'Download failed (are you online?)' >&2; exit 1; }
   . "$tmp/common-mac.sh"
 fi
@@ -26,15 +26,17 @@ printf '%sBalatro Duel & Co-op uninstaller (macOS)%s\n' "$YELLOW" "$RESET"
 wait_balatro_closed
 
 step 'Balatro Duel & Co-op mod'
-if [ -d "$MODS_DIR/BalatroMultiplayer" ]; then
-  rm -rf "$MODS_DIR/BalatroMultiplayer"
-  done_ 'removed'
-else
-  done_ 'not installed'
-fi
-# Settings (name, server) saved by Steamodded.
-cfg="$BALATRO_DATA/config/BalatroMultiplayerDuelCoop.jkr"
-if [ -f "$cfg" ]; then rm -f "$cfg"; done_ 'settings removed'; fi
+# BalatroMultiplayer is the folder name used before the rename.
+found=0
+for name in BalatroDuelCoop BalatroMultiplayer; do
+  if [ -d "$MODS_DIR/$name" ]; then rm -rf "$MODS_DIR/$name"; found=1; fi
+done
+if [ "$found" = 1 ]; then done_ 'removed'; else done_ 'not installed'; fi
+# Settings (name, server) saved by Steamodded, under the current and pre-rename mod ids.
+for id in BalatroDuelCoop BalatroMultiplayerDuelCoop; do
+  cfg="$BALATRO_DATA/config/$id.jkr"
+  if [ -f "$cfg" ]; then rm -f "$cfg"; done_ 'settings removed'; fi
+done
 
 # Lovely + Steamodded: optional, other mods depend on them.
 smods=()

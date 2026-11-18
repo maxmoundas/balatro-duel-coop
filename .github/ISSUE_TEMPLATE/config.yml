@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: How multiplayer plays (rules and edge cases)
-    url: https://github.com/maxmoundas/balatro-multiplayer/blob/main/docs/HOW-IT-PLAYS.md
+    url: https://github.com/maxmoundas/balatro-duel-coop/blob/main/docs/HOW-IT-PLAYS.md
     about: Check here first if you're wondering whether something is intended.
