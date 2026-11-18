@@ -1,5 +1,5 @@
-BALATRO MULTIPLAYER - SETUP
-===========================
+BALATRO DUEL & CO-OP - SETUP
+============================
 You need Balatro on Steam (Windows or Mac), launched at least once.
 Windows and Mac players can play together.
 

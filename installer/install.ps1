@@ -1,5 +1,5 @@
-# Balatro Multiplayer - one-click installer for players.
-# Installs Lovely (mod loader), Steamodded (mod framework) and the Balatro Multiplayer mod.
+# Balatro Duel & Co-op - one-click installer for players.
+# Installs Lovely (mod loader), Steamodded (mod framework) and the Balatro Duel & Co-op mod.
 # Already-installed Lovely/Steamodded are left alone.
 
 $ErrorActionPreference = 'Stop'
@@ -23,7 +23,7 @@ function Download-Extract($url, $name) {
 }
 
 try {
-  Write-Host 'Balatro Multiplayer installer' -ForegroundColor Yellow
+  Write-Host 'Balatro Duel & Co-op installer' -ForegroundColor Yellow
 
   Wait-BalatroClosed
 
@@ -60,7 +60,7 @@ try {
     Done 'installed'
   }
 
-  Step 'Balatro Multiplayer mod'
+  Step 'Balatro Duel & Co-op mod'
   $src = Join-Path $PSScriptRoot 'BalatroMultiplayer'
   if (-not (Test-Path (Join-Path $src 'main.lua'))) { throw 'BalatroMultiplayer folder is missing next to this installer. Unzip the whole package first.' }
   $dst = Join-Path $mods 'BalatroMultiplayer'

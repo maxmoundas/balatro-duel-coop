@@ -1,4 +1,4 @@
--- Balatro Multiplayer: Duel (1v1, same seed, points) and Co-op (2-4 players, shared score).
+-- Balatro Duel & Co-op: Duel (1v1, same seed, points) and Co-op (2-4 players, shared score).
 -- Requires Steamodded (which requires Lovely).
 
 MP = MP or {}

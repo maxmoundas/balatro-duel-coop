@@ -1,4 +1,4 @@
-# Balatro Multiplayer — Duel & Co-op
+# Balatro Duel & Co-op
 
 A Balatro mod (Steamodded). Any player can host from inside the game, and Steam friends join
 through Steam itself: no server, port forwarding, tunnel or website. Each player runs their own

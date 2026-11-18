@@ -2,7 +2,7 @@
   "name": "balatro-multiplayer-server",
   "version": "0.1.0",
   "private": true,
-  "description": "Relay server for the Balatro Multiplayer mod (Duel + Co-op).",
+  "description": "Relay server for the Balatro Duel & Co-op mod.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

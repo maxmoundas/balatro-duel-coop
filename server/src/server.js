@@ -62,7 +62,7 @@ if (require.main === module) {
   const host = process.env.HOST || '0.0.0.0';
   const minPlayers = Number(process.env.MIN_PLAYERS) || 2;
   createServer({ minPlayers }).listen(port, host, () => {
-    console.log(`Balatro Multiplayer relay listening on ${host}:${port} (min players ${minPlayers})`);
+    console.log(`Balatro Duel & Co-op relay listening on ${host}:${port} (min players ${minPlayers})`);
   });
 }
 

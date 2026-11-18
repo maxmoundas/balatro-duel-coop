@@ -1,4 +1,4 @@
--- Balatro Multiplayer relay: lobbies, round gates, Duel points, win rules, invites.
+-- Balatro Duel & Co-op relay: lobbies, round gates, Duel points, win rules, invites.
 --
 -- Hands are never gated: everyone plays at their own pace. Two "round gates" keep the
 -- players together between blinds:
@@ -537,7 +537,7 @@ function Relay:dispatch(player, msg)
     return player:send({ type = 'welcome', id = player.id, protocol = Relay.PROTOCOL_VERSION })
   end
   if (t == 'create' or t == 'join') and player.protocol ~= Relay.PROTOCOL_VERSION then
-    fail('different mod version - everyone needs the latest Balatro Multiplayer (re-run the installer)')
+    fail('different mod version - everyone needs the latest Balatro Duel & Co-op (re-run the installer)')
   end
   if t == 'create' then
     self:leave_lobby(player)

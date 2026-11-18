@@ -1,6 +1,6 @@
 #!/bin/bash
-# Balatro Multiplayer - uninstaller for macOS.
-# Always removes the Balatro Multiplayer mod and its settings. Then asks whether to also
+# Balatro Duel & Co-op - uninstaller for macOS.
+# Always removes the Balatro Duel & Co-op mod and its settings. Then asks whether to also
 # remove Lovely and Steamodded (the mod loaders), which other mods may still need.
 # Never touches your save files.
 #
@@ -22,10 +22,10 @@ else
   . "$tmp/common-mac.sh"
 fi
 
-printf '%sBalatro Multiplayer uninstaller (macOS)%s\n' "$YELLOW" "$RESET"
+printf '%sBalatro Duel & Co-op uninstaller (macOS)%s\n' "$YELLOW" "$RESET"
 wait_balatro_closed
 
-step 'Balatro Multiplayer mod'
+step 'Balatro Duel & Co-op mod'
 if [ -d "$MODS_DIR/BalatroMultiplayer" ]; then
   rm -rf "$MODS_DIR/BalatroMultiplayer"
   done_ 'removed'

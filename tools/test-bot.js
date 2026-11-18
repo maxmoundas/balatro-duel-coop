@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Stand-in second player for testing Balatro Multiplayer alone.
+// Stand-in second player for testing Balatro Duel & Co-op alone.
 //
 //   node tools/test-bot.js CODE                  (your in-game lobby, on this PC)
 //   node tools/test-bot.js CODE@steam:<id>       (pasted invite code - same thing)

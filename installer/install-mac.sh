@@ -1,6 +1,6 @@
 #!/bin/bash
-# Balatro Multiplayer - installer for macOS.
-# Installs Lovely (mod loader), Steamodded (mod framework) and the Balatro Multiplayer mod.
+# Balatro Duel & Co-op - installer for macOS.
+# Installs Lovely (mod loader), Steamodded (mod framework) and the Balatro Duel & Co-op mod.
 # Already-installed Lovely/Steamodded are left alone.
 #
 # Run it in Terminal, either straight from the web:
@@ -26,7 +26,7 @@ PACKAGE_URL="${BMP_PACKAGE_URL:-https://github.com/maxmoundas/balatro-multiplaye
 src="${BASH_SOURCE[0]:-}"
 if [ -z "$src" ] || [ ! -f "$src" ] || [ ! -f "$(dirname "$src")/common-mac.sh" ]; then
   tmp="$(mktemp -d -t bmp)"
-  echo 'Downloading Balatro Multiplayer...'
+  echo 'Downloading Balatro Duel & Co-op...'
   curl -fL --retry 3 --progress-bar -o "$tmp/package.zip" "$PACKAGE_URL" || { echo 'Download failed (are you online?)' >&2; exit 1; }
   unzip -q "$tmp/package.zip" -d "$tmp/package"
   script="$(find "$tmp/package" -name install-mac.sh | head -n 1)"
@@ -46,7 +46,7 @@ download() { # url dest
 }
 
 main() {
-  printf '%sBalatro Multiplayer installer (macOS)%s\n' "$YELLOW" "$RESET"
+  printf '%sBalatro Duel & Co-op installer (macOS)%s\n' "$YELLOW" "$RESET"
 
   wait_balatro_closed
 
@@ -90,7 +90,7 @@ main() {
     done_ 'installed'
   fi
 
-  step 'Balatro Multiplayer mod'
+  step 'Balatro Duel & Co-op mod'
   local src="$here/BalatroMultiplayer"
   [ -f "$src/main.lua" ] || die 'BalatroMultiplayer folder is missing next to this installer. Unzip the whole package first.'
   rm -rf "$MODS_DIR/BalatroMultiplayer"

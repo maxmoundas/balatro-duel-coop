@@ -1,6 +1,6 @@
 {
   "id": "BalatroMultiplayerDuelCoop",
-  "name": "Balatro Multiplayer (Duel & Co-op)",
+  "name": "Balatro Duel & Co-op",
   "author": ["maxmoundas"],
   "description": "Head-to-head Duel on the same seed, or 2-4 player Co-op with a shared blind score.",
   "prefix": "mpdc",

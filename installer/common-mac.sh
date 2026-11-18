@@ -91,7 +91,7 @@ write_launcher() { # path
   cat > "$1" <<'EOF'
 #!/bin/bash
 # balatro-multiplayer lovely launcher
-# Starts Balatro with Lovely (the mod loader). Installed by Balatro Multiplayer's
+# Starts Balatro with Lovely (the mod loader). Installed by Balatro Duel & Co-op's
 # install-mac.sh in place of Balatro's executable; the real one is love-original.
 # To undo, run uninstall-mac.sh (or Steam > Balatro > Properties > Installed Files >
 # Verify integrity of game files).

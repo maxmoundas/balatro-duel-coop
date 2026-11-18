@@ -1,5 +1,5 @@
-# Balatro Multiplayer - uninstaller for players.
-# Always removes the Balatro Multiplayer mod and its settings. Then asks whether to also
+# Balatro Duel & Co-op - uninstaller for players.
+# Always removes the Balatro Duel & Co-op mod and its settings. Then asks whether to also
 # remove Lovely and Steamodded (the mod loaders), which other mods may still need.
 # Never touches Balatro itself or your save files.
 
@@ -29,10 +29,10 @@ function Get-LovelyDlls($game) {
 }
 
 try {
-  Write-Host 'Balatro Multiplayer uninstaller' -ForegroundColor Yellow
+  Write-Host 'Balatro Duel & Co-op uninstaller' -ForegroundColor Yellow
   Wait-BalatroClosed
 
-  Step 'Balatro Multiplayer mod'
+  Step 'Balatro Duel & Co-op mod'
   $mod = Join-Path $ModsDir 'BalatroMultiplayer'
   if (Test-Path $mod) {
     Remove-Item -Recurse -Force $mod
