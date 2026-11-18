@@ -6,6 +6,9 @@ copy of Balatro, so everything plays exactly like the real game. Works on **Wind
 and Windows and Mac players can play together.
 
 - **Rules and edge cases:** [How multiplayer plays](docs/HOW-IT-PLAYS.md)
+- **Also on:** [Thunderstore](https://thunderstore.io/c/balatro/p/MaxMoundas/Balatro_Duel_Coop/)
+  (r2modman / Gale) · [Nexus Mods](https://www.nexusmods.com/balatro/mods/1009) ·
+  [Steam guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3842026023)
 - **Feedback, ideas and bug reports:** [open an issue](https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose)
   (see [Feedback](#feedback))
 
@@ -19,6 +22,10 @@ and Windows and Mac players can play together.
 - **Your Steam status set to Online**, not Invisible or Offline. Invites and joining go through
   Steam's friend status.
 - **Balatro launched at least once**, all the way to the main menu, so its save folder exists.
+
+**Use a mod manager?** Install **Balatro Duel & Co-op** from
+[Thunderstore](https://thunderstore.io/c/balatro/p/MaxMoundas/Balatro_Duel_Coop/) with r2modman
+or Gale. It pulls in Lovely and Steamodded for you, so you can skip the steps below.
 
 ### Install on Windows
 1. **Download the installer:**

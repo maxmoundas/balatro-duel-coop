@@ -25,7 +25,7 @@ You play at your own pace, and you can press Tab any time to look at the other p
 
 Works on **Windows and Mac** (they can play together) through **Steam friend invites**: no server, no port forwarding. The installer sets everything up for you.
 
-**Download:** <https://github.com/maxmoundas/balatro-duel-coop> (also on [Nexus Mods](<https://www.nexusmods.com/balatro/mods/1009>) and as a [Steam guide](<https://steamcommunity.com/sharedfiles/filedetails/?id=3842026023>))
+**Download:** <https://github.com/maxmoundas/balatro-duel-coop> (also on [Thunderstore](<https://thunderstore.io/c/balatro/p/MaxMoundas/Balatro_Duel_Coop/>) for r2modman/Gale, [Nexus Mods](<https://www.nexusmods.com/balatro/mods/1009>), and as a [Steam guide](<https://steamcommunity.com/sharedfiles/filedetails/?id=3842026023>))
 
 Feedback is very welcome, here or on [GitHub](<https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose>). Big thanks to the [Lovely](<https://github.com/ethangreen-dev/lovely-injector>) and [Steamodded](<https://github.com/Steamodded/smods>) teams, since this mod is built on their work.
 
