@@ -479,10 +479,9 @@ function V.open(reopen)
   if not MP.run or G.STAGE ~= G.STAGES.RUN then return end
   V.is_open = true
   if not reopen then V.tab = nil end -- a fresh open starts on Compare
-  -- Pause like Balatro's own Run Info / deck overlays. Besides freezing the run underneath,
-  -- this keeps the viewer's buttons clickable while a round gate holds the controller lock
-  -- (locked input is only accepted while paused). It must happen BEFORE building: anything
-  -- created unpaused doesn't move while paused, so the first tab would never slide into place.
+  -- Pause like Balatro's own Run Info / deck overlays, freezing the run underneath. It must
+  -- happen BEFORE building: anything created unpaused doesn't move while paused, so the
+  -- first tab would never slide into place.
   local was_paused = G.SETTINGS.paused
   G.SETTINGS.paused = true
   local saved = G.GAME and G.GAME.pseudorandom and copy_table(G.GAME.pseudorandom)

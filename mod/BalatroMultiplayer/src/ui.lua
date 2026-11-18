@@ -767,17 +767,6 @@ function UI.install_hooks()
     return orig_exit(...)
   end
 
-  -- While a round gate holds the controller lock, unpaused clicks are dropped, so the
-  -- status bar (which opens the player viewer) needs to be let through by hand.
-  local orig_press = Controller.L_cursor_press
-  function Controller:L_cursor_press(x, y)
-    if self.locked and not G.SETTINGS.paused and not G.OVERLAY_MENU and UI.status_bar_hit(self) then
-      if MP.viewer then MP.viewer.open() end
-      return
-    end
-    return orig_press(self, x, y)
-  end
-
   local orig_key = love.keypressed
   love.keypressed = function(key, ...)
     if key == 'f8' and G.STAGE == G.STAGES.MAIN_MENU and not G.OVERLAY_MENU then UI.open() return end
@@ -912,19 +901,6 @@ local function build_bar(pills)
   }
 end
 
--- Is the cursor over the status bar, with only our gate lock holding input?
-function UI.status_bar_hit(ctrl)
-  if not (MP.run and G.STAGE == G.STAGES.RUN) then return false end
-  for k, v in pairs(ctrl.locks) do
-    if v and k ~= 'mp_gate' then return false end
-  end
-  local cur = slots.bar
-  local box = cur and cur.box
-  if not box or box.REMOVED or not G.CURSOR then return false end
-  local ok, hit = pcall(box.collides_with_point, box, G.CURSOR.T)
-  return ok and hit or false
-end
-
 -- Notices (waiting for players, end of run) -----------------------------------------
 
 -- A notice is { title, colour, scale, bump, lines = { { text, colour } }, points = { { name, n } }, top, button }.
@@ -1026,6 +1002,13 @@ local function current_notice(run, in_run, paused)
     return n
   end
   if not in_run or run.finished or UI.hud_hidden then return nil end
+  if run.gate and run.gate.released then
+    -- Everyone is ready, but the next step waits for this player to close their menu.
+    -- (Without a menu it runs within a frame or two: keep what's on screen.)
+    if not menu_open then return 'hold' end
+    return { title = 'Everyone is ready! Close the menu to continue', colour = G.C.GREEN,
+      scale = 0.45, bump = true, top = true }
+  end
   if run.gate or (run.coop_waiting and run.coop_waiting == run.slot) then
     if paused then return 'hold' end -- frozen under the menu anyway
     if run.gate then

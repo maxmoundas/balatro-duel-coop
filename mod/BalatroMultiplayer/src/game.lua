@@ -34,10 +34,6 @@ function MP.player_name(id)
   return 'Player ' .. tostring(id)
 end
 
-local function lock(name, on)
-  if G.CONTROLLER and G.CONTROLLER.locks then G.CONTROLLER.locks[name] = on or nil end
-end
-
 -- ---------------------------------------------------------------------------
 -- Connection / lobby actions
 
@@ -195,6 +191,11 @@ end
 
 -- Round gates: cashing out (-> shop) and selecting/skipping the next blind wait until
 -- every other player still in the run has caught up. Hands are never gated.
+--
+-- While waiting, the rest of the game stays usable (deck view, run info, pause menu,
+-- jokers and consumables): only the actions that would move the run forward are held.
+-- Repeat select / skip / cash out clicks are ignored by hold_at_gate, and boss rerolls
+-- are blocked in the hooks below.
 local function run_gate(w)
   if w.kind == 'shop' then
     MP.orig.cash_out(w.e)
@@ -205,21 +206,34 @@ local function run_gate(w)
   end
 end
 
+-- A released gate runs once the player is back in the game: running it under an open
+-- menu would queue the next blind / shop as paused events that play out beneath it.
+local function gate_can_run()
+  return not G.SETTINGS.paused and not G.OVERLAY_MENU and not (G.CONTROLLER and G.CONTROLLER.locked)
+end
+
+local function try_run_gate()
+  local run = MP.run
+  local w = run and run.gate
+  if not (w and w.released) or not gate_can_run() then return end
+  run.gate = nil
+  run.gate_waiting_for = nil
+  run_gate(w)
+end
+
 -- `playing` (Co-op blind gates): how many players selected this blind rather than skipping it.
 function MP.release_gate(kind, slot, playing)
   local run = MP.run
   local w = run and run.gate
-  if not w or (kind and (w.kind ~= kind or w.slot ~= slot)) then return end
+  if not w or w.released or (kind and (w.kind ~= kind or w.slot ~= slot)) then return end
   w.playing = playing
-  run.gate = nil
+  w.released = true
   run.gate_waiting_for = nil
-  lock('mp_gate', false)
-  run_gate(w)
+  try_run_gate()
 end
 
 function MP.release_all_gates()
   if MP.run then MP.release_gate() end
-  lock('mp_gate', false)
 end
 
 -- Hold `e`'s action until the server says everyone is ready. Returns false if no gate applies.
@@ -229,7 +243,6 @@ local function hold_at_gate(kind, slot, e, action)
   if run.gate then return true end -- already waiting; ignore repeat clicks
   run.gate = { kind = kind, slot = slot, e = e, action = action }
   run.gate_waiting_for = nil
-  lock('mp_gate', true)
   MP.send({ type = kind == 'shop' and 'shop_ready' or 'blind_ready', slot = slot, action = action })
   return true
 end
@@ -921,6 +934,21 @@ function MP.install_hooks()
     return MP.skip_blind_now(e)
   end
 
+  -- The boss can't be rerolled once this player has committed to the next blind.
+  orig.reroll_boss = G.FUNCS.reroll_boss
+  G.FUNCS.reroll_boss = function(e)
+    if MP.run and MP.run.gate then return end
+    return orig.reroll_boss(e)
+  end
+  orig.reroll_boss_button = G.FUNCS.reroll_boss_button
+  G.FUNCS.reroll_boss_button = function(e)
+    orig.reroll_boss_button(e)
+    if MP.run and MP.run.gate and e.config.button then
+      e.config.colour = G.C.UI.BACKGROUND_INACTIVE
+      e.config.button = nil
+    end
+  end
+
   -- Going to the shop waits until every player has finished this blind (round gate).
   orig.cash_out = G.FUNCS.cash_out
   G.FUNCS.cash_out = function(e)
@@ -1069,7 +1097,6 @@ function MP.install_hooks()
       MP.send({ type = 'leave' })
       MP.run = nil
       MP.lobby = nil
-      lock('mp_gate', false)
       update_presence()
     end
     return orig.go_to_menu(e)
@@ -1083,7 +1110,6 @@ function MP.install_hooks()
       MP.send({ type = 'leave' })
       MP.run = nil
       MP.lobby = nil
-      lock('mp_gate', false)
       update_presence()
     end
     return orig.start_run(e, args)
@@ -1165,6 +1191,7 @@ function MP.update(dt)
   Net.poll(dt, on_message, on_status)
   MP.host.update(dt)
   maybe_send_snapshot(dt)
+  try_run_gate()
   if MP.viewer then MP.viewer.update() end
   if MP.UI.update then MP.UI.update() end
 
