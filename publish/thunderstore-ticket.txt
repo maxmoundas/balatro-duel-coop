@@ -1,0 +1,29 @@
+THUNDERSTORE REJECTED-UPLOAD TICKET
+===================================
+Post in the Thunderstore Discord's rejected-uploads forum.
+Team: MaxMoundas (link already filled in).
+If you haven't uploaded 1.0.1 yet, delete the line about it.
+Don't @ moderators and don't repost, because either moves you to the back of the queue.
+Copy everything between the ----- lines.
+
+
+TITLE
+-----
+Balatro Duel & Co-op
+-----
+
+MESSAGE
+-----
+Rejected mod: https://thunderstore.io/c/balatro/p/MaxMoundas/Balatro_Duel_Coop/
+Version 1.0.0 was rejected with "Invalid submission" and no reason. I've since uploaded 1.0.1, which adds an AI disclosure to the README and the AI Generated category; I think the missing disclosure may have been the problem.
+
+GitHub: https://github.com/maxmoundas/balatro-duel-coop
+
+What it does: a Steamodded multiplayer mod for Balatro, with 2–4 player Co-op (shared blind score) and 1v1 Duels on the same seed. Players join each other through Steam friend invites.
+- It's all plain Lua. There are no DLLs or executables, it downloads nothing, and it only writes to Balatro's Mods/config folders.
+- It uses LuaJIT FFI to call the Steam API library that ships with Balatro (steam_api64.dll / libsteam_api.dylib) for the friends list, invites, rich presence and Steam P2P networking.
+- It runs a small game server on a LÖVE background thread (luasocket, localhost only) so a player can host from inside the game.
+- It was written with AI assistance (Claude), which the README discloses, and I've tested it in real multiplayer games.
+
+Thanks for taking a look!
+-----

@@ -22,12 +22,14 @@ You play at your own pace within each round, and the game keeps everyone in sync
 [*]Everyone needs their own copy of Balatro and the mod installed. The installer sets up everything else for you.
 [/list]
 
-Download and install instructions: [url=https://github.com/maxmoundas/balatro-duel-coop]github.com/maxmoundas/balatro-duel-coop[/url]
+How to install and play (step-by-step Steam guide): [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3842026023]Balatro Duel & Co-op guide[/url]
+
+The download is on GitHub: [url=https://github.com/maxmoundas/balatro-duel-coop]github.com/maxmoundas/balatro-duel-coop[/url] (also on [url=https://www.nexusmods.com/balatro/mods/1009]Nexus Mods[/url])
 
 The full rules for each mode are written up here: [url=https://github.com/maxmoundas/balatro-duel-coop/blob/main/docs/HOW-IT-PLAYS.md]How multiplayer plays[/url]
 
 [h2]Feedback welcome[/h2]
-I did my best to make the interface feel like part of the game, but I'm open to feedback. If you have a GitHub account, [url=https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose]open an issue[/url].
+I did my best to make the interface feel like part of the game, but I'm open to feedback. Reply here, comment on the guide, or if you have a GitHub account, [url=https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose]open an issue[/url].
 
 [h2]Thanks[/h2]
 A big thank you to the people behind the mods this one is built on: [url=https://github.com/ethangreen-dev/lovely-injector]Lovely[/url] by ethangreen-dev, and the [url=https://github.com/Steamodded/smods]Steamodded[/url] team. This mod couldn't exist without their work.

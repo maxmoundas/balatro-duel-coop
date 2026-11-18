@@ -1,6 +1,6 @@
 {
   "name": "Balatro_Duel_Coop",
-  "version_number": "1.0.0",
+  "version_number": "1.0.1",
   "website_url": "https://github.com/maxmoundas/balatro-duel-coop",
   "description": "Duel a friend on the same seed, or team up in 2-4 player Co-op with a shared blind score. Join through Steam friend invites: no server, no port forwarding. Windows and Mac.",
   "dependencies": [

@@ -26,6 +26,13 @@ Press **Tab** at any time to look at the other players' jokers, deck and hand le
 Thanks to the projects this mod is built on: [Lovely](https://github.com/ethangreen-dev/lovely-injector)
 by ethangreen-dev and the [Steamodded](https://github.com/Steamodded/smods) team.
 
+## AI disclosure
+
+This mod was made with AI assistance. Its Lua code, the package icon and this description
+were written with **Claude (Anthropic)**, using Claude Code, and reviewed, tested and played by
+me in real multiplayer games. The source is open on
+[GitHub](https://github.com/maxmoundas/balatro-duel-coop).
+
 ## Links
 
 - [Manual install and one-click installer (Windows and Mac)](https://github.com/maxmoundas/balatro-duel-coop)

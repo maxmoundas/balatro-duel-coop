@@ -1,0 +1,78 @@
+[size=5][b]Balatro Duel & Co-op[/b][/size]
+
+Play Balatro with your Steam friends: team up in [b]Co-op[/b] or go head to head in a [b]Duel[/b].
+
+I recently finished Completion++ on both the mobile and Steam versions of Balatro. I've loved this game since the first time I played it, and I've gotten my family hooked on it too. Having that much love for the game made me want to play it with other people. Watching someone else play (or having them watch you) only goes so far, so I made Balatro Duel & Co-op, a mod that adds multiplayer to Balatro.
+
+[line]
+
+[size=4][b]Two modes[/b][/size]
+[list]
+[*][b]Co-op (2–4 players):[/b] everyone plays their own run on the same seed, but your scores are pooled into one shared blind. Blind requirements scale with the number of players, and if you run out of hands, your teammates can still carry you through. Beat Ante 8 together.
+[*][b]Duel (1v1):[/b] you and your opponent play the same seed side by side. Each blind awards a point for the best single hand and a point for beating it in the fewest hands. Outlast your opponent, or outscore them if you both make it to the end.
+[/list]
+
+You play at your own pace within each round, and the game keeps everyone in sync between rounds. Press [b]Tab[/b] at any time to look at the other players' jokers, deck and hand levels.
+
+The full rules for each mode are here: [url=https://github.com/maxmoundas/balatro-duel-coop/blob/main/docs/HOW-IT-PLAYS.md]How multiplayer plays[/url]
+
+[line]
+
+[size=4][b]Requirements[/b][/size]
+[list]
+[*][b]Balatro on Steam[/b], on Windows or Mac, launched at least once. Windows and Mac players can play together.
+[*]Every player needs their own copy of Balatro and this mod.
+[*]Multiplayer goes through [b]Steam friend invites[/b]: no server to set up and no port forwarding. Be Steam friends with the host and set your Steam status to Online.
+[*][url=https://github.com/ethangreen-dev/lovely-injector]Lovely[/url] and [url=https://github.com/Steamodded/smods]Steamodded[/url]. The installer below sets both up for you.
+[/list]
+
+[line]
+
+[size=4][b]Install[/b][/size]
+[b]Windows (recommended: BalatroDuelCoop-Setup.zip, the main file)[/b]
+[list=1]
+[*]Download [b]BalatroDuelCoop-Setup.zip[/b] from the Files tab.
+[*]Unzip it (right-click > Extract All). Running it from inside the zip won't work.
+[*]Close Balatro.
+[*]Double-click [b]Install.bat[/b]. If Windows warns you, click "More info" > "Run anyway".
+[*]Launch Balatro from Steam and click [b]MULTIPLAYER[/b] on the main menu.
+[/list]
+
+[b]Mac[/b]
+[list=1]
+[*]Quit Balatro.
+[*]Open Terminal (Applications > Utilities > Terminal) and run:
+[code]curl -fsSL https://github.com/maxmoundas/balatro-duel-coop/releases/latest/download/install-mac.sh | bash[/code]
+[*]Launch Balatro from Steam and click [b]MULTIPLAYER[/b] on the main menu.
+[/list]
+Or download BalatroDuelCoop-Setup.zip, unzip it, and run [b]bash files/install-mac.sh[/b] from that folder.
+
+[b]Already have Steamodded?[/b]
+Download the optional file [b]BalatroDuelCoop.zip[/b] and put the [b]BalatroDuelCoop[/b] folder in your Mods folder ([b]%AppData%\Balatro\Mods[/b] on Windows, [b]~/Library/Application Support/Balatro/Mods[/b] on Mac).
+
+[b]Uninstall:[/b] close Balatro and double-click [b]Uninstall.bat[/b] (Windows) or run [b]files/uninstall-mac.sh[/b] (Mac). It removes this mod, then asks whether to also remove Lovely and Steamodded. Your Balatro saves are never touched.
+
+[line]
+
+[size=4][b]How to play[/b][/size]
+[list=1]
+[*]Click [b]MULTIPLAYER[/b] on the main menu.
+[*]One player hosts a Duel or Co-op lobby, picks the deck and stake (or a challenge), and clicks [b]Invite Steam Friends[/b].
+[*]Friends join: if Balatro is open, click [b]Join[/b] on the invite banner in the MULTIPLAYER menu. If it's closed, accept the invite in Steam chat and Balatro launches and joins by itself.
+[*]Once everyone is in the lobby, the host clicks [b]Start Game[/b].
+[/list]
+No invite showing up? The host can click [b]Copy invite code[/b] and send it to you instead.
+
+[line]
+
+[size=4][b]Feedback and bugs[/b][/size]
+I did my best to make the interface feel like part of the game, but I'm open to feedback. Post in the comments here, or [url=https://github.com/maxmoundas/balatro-duel-coop/issues/new/choose]open an issue on GitHub[/url].
+
+Source code and full instructions: [url=https://github.com/maxmoundas/balatro-duel-coop]github.com/maxmoundas/balatro-duel-coop[/url]
+
+[line]
+
+[size=4][b]Thanks[/b][/size]
+A big thank you to the people behind the mods this one is built on: [url=https://github.com/ethangreen-dev/lovely-injector]Lovely[/url] by ethangreen-dev, and the [url=https://github.com/Steamodded/smods]Steamodded[/url] team. This mod couldn't exist without their work.
+
+[i]Not to be confused with the separate "Balatro Multiplayer" mod. This is an unofficial fan mod and isn't affiliated with LocalThunk or Playstack.[/i]
