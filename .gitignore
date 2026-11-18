@@ -19,3 +19,10 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# Launch posts, tickets and listing copy (kept local, not public)
+publish/discord-post.txt
+publish/steam-post.txt
+publish/thunderstore-ticket.txt
+publish/nexus-description.txt
+publish/steam-guide.txt
