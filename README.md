@@ -38,8 +38,10 @@ and Windows and Mac players can play together.
    - If it can't find Balatro, it asks for the game folder. To find it, go to Steam → right-click
      Balatro → Manage → Browse local files, then copy the address bar and paste it in.
 5. **Launch Balatro from Steam.** The first launch with mods can take a little longer.
-   A **MULTIPLAYER** button appears on the main menu. If it doesn't, press **F8** on the main
-   menu.
+   A **MULTIPLAYER** button appears on the main menu, under **PLAY**. If it doesn't, press
+   **F8** on the main menu.
+
+   ![Balatro main menu with the MULTIPLAYER button under PLAY](docs/images/main-menu.jpg)
 
 ### Install on Mac
 1. **Quit Balatro** if it's open.
@@ -88,8 +90,15 @@ of the mod and leaves Lovely and Steamodded as they are.
 Your Balatro save files are never touched.
 
 ### Play with a friend
-1. **Host:** MULTIPLAYER → **Duel** or **Co-op** → choose a deck and stake → **Play**.
-2. **Host:** **Invite Steam Friends** → **Invite** next to your friend.
+1. **Host:** click **MULTIPLAYER**. Under **Duel** or **Co-op**, click **Choose deck & stake**
+   (or **Play a challenge**), pick one, then **Play**.
+
+   ![The Multiplayer menu: host a Duel or Co-op game, or join with an invite code](docs/images/multiplayer-menu.jpg)
+
+2. **Host:** in the lobby, click **Invite Steam Friends** → **Invite** next to your friend.
+
+   ![A Co-op lobby with two players, the invite buttons, the chosen deck and stake, and Start Game](docs/images/lobby.jpg)
+
 3. **Friend:** what happens next depends on whether Balatro is open.
    - **Balatro is open:** an invite banner appears in the MULTIPLAYER menu. Click **Join**.
    - **Balatro is closed:** accept the invite in Steam chat. Balatro launches and joins the
@@ -102,6 +111,8 @@ In game: **F7** toggles the multiplayer status bar. **Tab** (or clicking the sta
 the player viewer, where you can compare yourself with the other players: their jokers,
 consumables, vouchers, tags and hand, their **whole deck** with every enhancement, seal and
 edition, their **poker hand levels** next to yours, and the score of every blind.
+
+![The player viewer's Compare tab: your money, hands, discards, best hand and jokers next to a teammate's](docs/images/player-viewer.jpg)
 
 Your name in multiplayer is your **Steam name**. To use a different one, set it under
 MULTIPLAYER → **Advanced**. Leave the field empty to go back to your Steam name.

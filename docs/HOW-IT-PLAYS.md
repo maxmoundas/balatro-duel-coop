@@ -146,7 +146,12 @@ rearranging) happens at your own pace and is never held up.
   - **Co-op:** the current score multiplier (for example *CO-OP x3*), how much your teammates have
     added to this blind, and each teammate's last hand.
 - **Player viewer** (**Tab**, or click the status bar):
-  - **Compare:** your run next to theirs.
+
+  ![The player viewer's Compare tab in a Co-op game](images/player-viewer.jpg)
+
+  - **Compare:** your run next to theirs: money, hands and discards left, hand size, draw pile,
+    best hand, jokers, and what each player is doing right now (for example *Shopping* or
+    *Choosing blind*).
   - **Their cards:** jokers, consumables, vouchers, tags and their current hand.
   - **Deck:** their whole deck, with every enhancement, seal and edition. **Show mine** switches
     to yours.
