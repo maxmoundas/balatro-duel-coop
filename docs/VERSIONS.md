@@ -8,7 +8,7 @@ Per-release notes (the text that goes on GitHub, Thunderstore and Nexus) are in
 
 | Version | Released | Protocol | Plays with | Summary |
 |---|---|---|---|---|
-| [1.0.2](releases/v1.0.2.md) | unreleased | 5 | 1.0.2 only | Host can choose same or different seeds; Co-op Endless mode stays in sync; victory popup no longer gets stuck in Endless. |
+| [1.0.2](releases/v1.0.2.md) | 2026-11-22 | 5 | 1.0.2 only | Host can choose same or different seeds; Co-op Endless mode stays in sync; victory popup no longer gets stuck in Endless. |
 | 1.0.1 | 2026-11-18 | 4 | 1.0.0, 1.0.1 | Listing and store-page update. No gameplay changes. |
 | 1.0.0 | 2026-11-18 | 4 | 1.0.0, 1.0.1 | First public release. |
 
@@ -20,7 +20,7 @@ update, and so does any dedicated server.
 
 ## Details
 
-### 1.0.2 (unreleased)
+### 1.0.2 (2026-11-22)
 
 **New**
 - **Same seed or different seeds.** In the lobby the host can switch between everyone playing
