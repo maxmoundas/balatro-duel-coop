@@ -254,6 +254,7 @@ local function new_run(msg)
   return {
     mode = msg.mode,
     seed = msg.seed,
+    same_seed = msg.sameSeed ~= false, -- false: every player has their own seed
     players = msg.players or {},
     player_count = msg.playerCount or #(msg.players or {}),
     slot = 0,          -- nth blind of the run (selected or skipped)
@@ -307,7 +308,8 @@ function MP.start_game(msg)
     G.FUNCS.start_run(nil, { stake = tonumber(msg.stake) or 1, seed = msg.seed, deck_choice = { name = center.name } })
   end
   MP.starting_run = false
-  MP.toast((msg.mode == 'duel' and 'Duel' or 'Co-op') .. ' started! Seed ' .. tostring(msg.seed) ..
+  MP.toast((msg.mode == 'duel' and 'Duel' or 'Co-op') .. ' started! ' ..
+    (msg.sameSeed == false and 'Your own seed: ' or 'Seed ') .. tostring(msg.seed) ..
     (challenge and ('  |  Challenge: ' .. MP.challenge_name(challenge.id)) or ''), G.C.GREEN)
 end
 
@@ -445,6 +447,13 @@ handlers.team_score = function(m)
   table.insert(run.pending, { slot = tonumber(m.slot), score = tonumber(m.score) or 0, name = m.name })
 end
 
+-- A teammate beat blind `slot`. With different seeds their target can be lower than ours
+-- (a different boss): the team has beaten it, so ours ends as beaten too.
+handlers.team_blind_won = function(m)
+  local run = MP.run
+  if run and run.mode == 'coop' and not run.same_seed then run.team_cleared_slot = tonumber(m.slot) end
+end
+
 handlers.team_status = function(m)
   if MP.run then MP.run.team_status = m end
 end
@@ -491,6 +500,16 @@ end
 handlers.game_over = function(m)
   local run = MP.run
   if not run then return end
+  run.result_seen = nil
+  if m.endless then
+    -- Co-op team victory: the run goes on in Endless mode, still in sync with the team.
+    -- Our own run is back in play, so a later game over gets reported again.
+    run.result = m
+    run.endless = true
+    run.reported_end = nil
+    MP.toast('Team victory! Endless Mode stays in sync with your team', G.C.GREEN)
+    return
+  end
   run.finished = true
   run.result = m
   run.points = m.points or run.points
@@ -1032,6 +1051,11 @@ function MP.install_hooks()
     local run = MP.run
     if not run or not MP.in_game() then return orig.end_round() end
     local won = G.GAME.chips - blind_target() >= 0
+    if run.mode == 'coop' and not won and run.team_cleared_slot == run.slot and not run.force_fail then
+      -- A teammate beat their (different seed) version of this blind: count ours as beaten.
+      G.GAME.chips = blind_target()
+      won = true
+    end
     if run.mode == 'coop' and not won and not run.force_fail and not run.disconnected then
       -- Out of hands but teammates may still carry the blind: wait instead of losing.
       if run.coop_waiting ~= run.slot then
@@ -1229,7 +1253,8 @@ function MP.update(dt)
   end
 
   local target = blind_target()
-  if target > 0 and G.GAME.chips >= target then
+  local cleared = run.team_cleared_slot == run.slot and G.GAME.blind and G.GAME.blind.in_blind
+  if target > 0 and (G.GAME.chips >= target or cleared) then
     -- A teammate's score beat the blind: end it here too, the way a winning hand would.
     run.beaten_for = (in_hand and (run.beaten_for or 0) + dt) or 0
     if waiting then

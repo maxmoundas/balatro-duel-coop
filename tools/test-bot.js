@@ -43,7 +43,7 @@ const duel = { slot: 0, hand: 0, hands: 0, best: 0 };
 
 const sock = net.connect({ host, port }, () => {
   log(`connected to ${host}:${port}`);
-  send({ type: 'hello', name: NAME, protocol: 4 });
+  send({ type: 'hello', name: NAME, protocol: 5 });
 });
 sock.setNoDelay(true);
 sock.setEncoding('utf8');

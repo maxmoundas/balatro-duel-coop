@@ -4,10 +4,10 @@ Play Balatro with your Steam friends: team up in **Co-op** or go head to head in
 
 ## Two modes
 
-- **Co-op (2–4 players):** everyone plays their own run on the same seed, but your scores are
+- **Co-op (2–4 players):** everyone plays their own run (on the same seed, or a different seed each), but your scores are
   pooled into one shared blind. Blind requirements scale with the number of players, and if you
   run out of hands, your teammates can still carry you through. Beat Ante 8 together.
-- **Duel (1v1):** you and your opponent play the same seed side by side. Each blind awards a point
+- **Duel (1v1):** you and your opponent play side by side, on the same seed or different ones. Each blind awards a point
   for the best single hand and a point for beating it in the fewest hands. Outlast your opponent,
   or outscore them if you both make it to the end.
 

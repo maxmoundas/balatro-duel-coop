@@ -6,6 +6,7 @@ copy of Balatro, so everything plays exactly like the real game. Works on **Wind
 and Windows and Mac players can play together.
 
 - **Rules and edge cases:** [How multiplayer plays](docs/HOW-IT-PLAYS.md)
+- **What changed in each version:** [Versions](docs/VERSIONS.md)
 - **Also on:** [Thunderstore](https://thunderstore.io/c/balatro/p/MaxMoundas/Balatro_Duel_Coop/)
   (r2modman / Gale) · [Nexus Mods](https://www.nexusmods.com/balatro/mods/1009) ·
   [Steam guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3842026023)
@@ -147,7 +148,8 @@ what you see while waiting for other players and how cards like Mr. Bones, Hiero
 Petroglyph work in multiplayer.
 
 ### Duel (1v1)
-- Both players get the **same seed, deck and stake**.
+- Both players get the **same deck and stake**, and by default the **same seed** (the host can
+  switch the lobby to a different seed for each player).
 - **Play at your own pace, but rounds stay in sync** (see [Round sync](#round-sync-both-modes)).
 - After each blind both players have finished, points are awarded:
   - **+1** to whoever scored the single highest hand in that blind
@@ -162,7 +164,8 @@ Petroglyph work in multiplayer.
 - Skipping blinds is allowed. A skipped blind gives the skipper no points for it.
 
 ### Co-op (2–4 players)
-- Every player plays their own run (same seed). Only the **score** is shared. Decks, money,
+- Every player plays their own run (same seed by default, or a different seed for each player if
+  the host picks that in the lobby). Only the **score** is shared. Decks, money,
   jokers and shops are each player's own.
 - Each blind's requirement is multiplied by the number of players. At 3 players, a 300-chip
   blind needs 900.
@@ -177,6 +180,8 @@ Petroglyph work in multiplayer.
   The skipper then waits at the next blind select until everyone else has finished the blind
   and left the shop.
 - The team wins when everyone beats the Ante 8 boss. Any player's run ending ends it for the team.
+- After a team win, players who choose **Endless Mode** keep playing together, still in sync. The
+  endless run ends for the team when a blind is lost.
 
 ### Round sync (both modes)
 Hands, discards, consumables and everything else inside a blind or shop are never held up.

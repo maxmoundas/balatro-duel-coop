@@ -31,3 +31,5 @@ on the approach.
 - `node tools/test-bot.js CODE` adds a stand-in second player to your lobby for testing alone.
 - [TESTING.md](TESTING.md) has a checklist for testing with two PCs and two Steam accounts.
 - The [README](README.md#how-it-works) has a map of which file does what.
+- Version history is in [docs/VERSIONS.md](docs/VERSIONS.md); the release checklist is in
+  [docs/RELEASING.md](docs/RELEASING.md).

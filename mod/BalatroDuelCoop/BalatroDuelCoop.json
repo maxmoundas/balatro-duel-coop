@@ -2,12 +2,12 @@
   "id": "BalatroDuelCoop",
   "name": "Balatro Duel & Co-op",
   "author": ["maxmoundas"],
-  "description": "Head-to-head Duel on the same seed, or 2-4 player Co-op with a shared blind score.",
+  "description": "Head-to-head Duel or 2-4 player Co-op with a shared blind score, on one shared seed or a different seed each.",
   "prefix": "mpdc",
   "main_file": "main.lua",
   "priority": 0,
   "badge_colour": "8867A5",
   "badge_text_colour": "FFFFFF",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "dependencies": ["Steamodded (>=1.0.0~BETA-0301a)"]
 }

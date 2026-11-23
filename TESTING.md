@@ -103,6 +103,29 @@ Repeat test 1 with PC B on a phone hotspot instead of your home Wi-Fi. When the 
 each other directly, Steam passes the traffic through its own relay servers, and this checks that
 path.
 
+### 7. Same seed or different seeds
+1. **PC A:** host a Duel or Co-op lobby. The lobby header shows the seed, and (host only) a
+   **Use different seeds** button. **PC B** sees the seed but no button.
+2. **PC A:** click **Use different seeds**. On both PCs the header should change to
+   **SEED PER PLAYER**. Click it again (**Use same seed**) and the seed should come back.
+3. Switch to different seeds and **Start Game**. The start message on each PC should say
+   "Your own seed: …" with a different seed, and the first shop / boss should differ.
+4. **Co-op with different seeds:** play until the two PCs face different bosses (or a blind where
+   one boss has a bigger requirement). When the player with the lower requirement beats it, the
+   other PC's blind should end as beaten too, even if they're out of hands.
+
+### 8. Winning and Endless mode
+This needs a full run to Ante 8 on both PCs (White Stake makes it quicker).
+1. **Co-op:** both players beat the Ante 8 boss. Each win screen shows a **TEAM VICTORY!** strip.
+2. Both click **Endless Mode**. The victory strip should go away as soon as the win screen
+   closes, and a "Team victory!" message appears.
+3. Keep playing: **Cash Out** and the next blind should still wait for the other player, exactly
+   like before the win.
+4. On one PC, click **Main Menu** on the win screen instead. The other PC should keep playing in
+   Endless without waiting for it.
+5. **Duel:** after both players beat Ante 8, the result strip shows over the win screen; after
+   clicking **Endless Mode** it should go away rather than staying on screen.
+
 ## If something goes wrong
 
 - **"Their game didn't answer through Steam" after about 30 s:** check that the accounts are Steam

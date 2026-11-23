@@ -19,9 +19,14 @@ game, see the [README](../README.md).
 - **Everyone plays their own copy of the run.** Each player has their own deck, hand, jokers,
   money, shop, consumables and vouchers. Nothing you buy or use changes another player's game,
   except for the [co-op exceptions below](#special-cards-and-edge-cases).
-- **Everyone gets the same seed, deck and stake.** The host picks the deck and stake (or a
-  challenge) in the lobby, and the seed is generated for the lobby. With the same seed you see the
-  same blinds, bosses and starting shops, but your choices quickly make your runs different.
+- **Everyone gets the same deck and stake.** The host picks the deck and stake (or a challenge)
+  in the lobby.
+- **Same seed or different seeds: the host decides.** By default everyone plays the same seed
+  (generated for the lobby, or the one the host typed in). With the same seed you see the same
+  blinds, bosses, shops, packs and jokers, but your choices quickly make your runs different.
+  Before starting, the host can click **Use different seeds** in the lobby so that each player
+  gets their own random seed instead, and every run is different from the start. A seed the host
+  typed in is only used when everyone plays the same seed.
 - **Challenges** can be played in either mode. A challenge brings its own deck and rules and is
   always played at White Stake, the same as in single player.
 - **Hands are never held up.** Inside a blind or a shop, you play at your own speed. Players only
@@ -108,6 +113,12 @@ score is shared**.
 ### Winning and losing
 
 - **The team wins when every player has beaten the Ante 8 boss.**
+- **Different seeds:** each player can face a different boss, so the blind's requirement can
+  differ from player to player. The pooled team score counts towards everyone's blind, and as
+  soon as **any** player's blind is beaten, it's beaten for the whole team.
+- **Endless mode:** after a team win, players who choose Endless Mode keep playing together,
+  with the same round gates and shared blinds. Anyone who goes to the main menu from the win
+  screen leaves the run. The endless run ends for the team when a blind is lost.
 - **The team loses when a blind is lost**, which (as above) only happens when every player
   playing it is out of hands. Everyone, including players who skipped that blind or are waiting
   between rounds, goes to the game over screen together.
@@ -198,7 +209,8 @@ it would be saved. A player is saved if they have a Mr. Bones that isn't debuffe
 - **Boss blinds** affect each player's own game, as usual. In Co-op, a boss that debuffs your
   cards or limits your hands only affects your own hands; your teammates' scores still count in
   full.
-- **Endless mode:** the match is decided at the Ante 8 boss. Anything after that doesn't count.
+- **Endless mode (Duel):** the match is decided at the Ante 8 boss. Anything after that doesn't
+  count, and each player's endless run is their own.
 - **Other mods:** mods that change scoring (for example Talisman) aren't supported yet.
 
 ---

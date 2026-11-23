@@ -61,11 +61,21 @@ jobs:
 
           Using a mod manager or installing by hand? BalatroDuelCoop.zip is just the mod folder: put it in your Mods folder next to Steamodded."
 
+          # Release notes for this version (docs/releases/vX.Y.Z.md) go above the install steps.
+          if [ -f "docs/releases/${tag}.md" ]; then
+            notes="$(cat "docs/releases/${tag}.md")
+
+          ---
+
+          ${notes}"
+          fi
+
           assets=(dist/BalatroDuelCoop-Setup.zip dist/BalatroDuelCoop.zip dist/BalatroDuelCoop-Thunderstore.zip
                   installer/install-mac.sh installer/uninstall-mac.sh installer/common-mac.sh)
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "${assets[@]}" --clobber
+            gh release edit "$tag" --notes "$notes"
           else
             gh release create "$tag" "${assets[@]}" --title "Balatro Duel & Co-op $tag" --notes "$notes" --latest
           fi

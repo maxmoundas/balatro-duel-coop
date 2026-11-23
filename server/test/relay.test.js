@@ -27,7 +27,7 @@ function harness(opts = {}) {
       };
       clients.set(cid, c);
       host.connect(cid);
-      c.send({ type: 'hello', name, steamId, protocol: 4 });
+      c.send({ type: 'hello', name, steamId, protocol: 5 });
       c.id = c.last('welcome').id;
       return c;
     },
@@ -298,6 +298,35 @@ test('coop: any run loss ends the game for the team; all wins -> team win', () =
   assert.strictEqual(ps[1].last('game_over').result, 'won');
 });
 
+test('coop: after a team win, Endless mode stays gated and a loss ends it', () => {
+  const { ps, ev } = coop(3);
+  for (const p of ps) ev(p, { type: 'run_won', slot: 24 });
+  const win = ps[0].last('game_over');
+  assert.strictEqual(win.result, 'won');
+  assert.strictEqual(win.endless, true);
+
+  // P3 leaves from the win screen; P1 and P2 play on together.
+  ps[2].close();
+  ev(ps[0], { type: 'blind_ready', slot: 25, action: 'select' });
+  assert.strictEqual(ps[0].all('gate_go').filter(g => g.slot === 25).length, 0, 'waits for teammate');
+  ev(ps[1], { type: 'blind_ready', slot: 25, action: 'select' });
+  assert.strictEqual(ps[0].all('gate_go').filter(g => g.slot === 25).length, 1);
+
+  ev(ps[1], { type: 'run_over', slot: 25 });
+  const end = ps[0].last('game_over');
+  assert.strictEqual(end.result, 'lost');
+  assert.strictEqual(end.reason, 'endless_over');
+});
+
+test('coop: the team wins once the remaining players have all won', () => {
+  const { ps, ev } = coop(3);
+  ev(ps[0], { type: 'run_won', slot: 24 });
+  ev(ps[1], { type: 'run_won', slot: 24 });
+  assert.strictEqual(ps[0].all('game_over').length, 0);
+  ps[2].close();
+  assert.strictEqual(ps[0].last('game_over').endless, true);
+});
+
 test('coop: an ante-lowering voucher moves every teammate back', () => {
   const { ps, ev } = coop(3);
   ev(ps[0], { type: 'ante_back', slot: 3, amount: 1, voucher: 'Hieroglyph' });
@@ -318,6 +347,65 @@ test('duel: ante-lowering vouchers stay personal', () => {
   const { a, b, ev } = duel();
   ev(a, { type: 'ante_back', slot: 3, amount: 1 });
   assert.strictEqual(b.all('team_ante').length, 0);
+});
+
+test('everyone gets the lobby seed by default', () => {
+  const h = harness();
+  const a = h.client('A'), b = h.client('B');
+  a.send({ type: 'create', mode: 'coop', seed: 'abc123' });
+  assert.strictEqual(a.last('lobby').sameSeed, true);
+  b.send({ type: 'join', code: a.last('lobby').code });
+  a.send({ type: 'start' });
+  assert.strictEqual(a.last('start').seed, 'ABC123');
+  assert.strictEqual(b.last('start').seed, 'ABC123');
+  assert.strictEqual(b.last('start').sameSeed, true);
+});
+
+test('the host can give every player a different seed', () => {
+  const h = harness();
+  const ps = ['A', 'B', 'C', 'D'].map(n => h.client(n));
+  ps[0].send({ type: 'create', mode: 'coop' });
+  const code = ps[0].last('lobby').code;
+  ps.slice(1).forEach(p => p.send({ type: 'join', code }));
+
+  ps[1].send({ type: 'lobby_options', sameSeed: false });
+  assert.match(ps[1].last('error').msg, /only the host/);
+  assert.strictEqual(ps[1].last('lobby').sameSeed, true);
+
+  ps[0].send({ type: 'lobby_options', sameSeed: false });
+  assert.strictEqual(ps[3].last('lobby').sameSeed, false);
+  ps[0].send({ type: 'start' });
+  const seeds = ps.map(p => p.last('start').seed);
+  assert.strictEqual(new Set(seeds).size, 4);
+  seeds.forEach(s => assert.match(s, /^[A-Z1-9]{8}$/));
+  assert.strictEqual(ps[2].last('start').sameSeed, false);
+
+  ps[0].send({ type: 'lobby_options', sameSeed: true });
+  assert.match(ps[0].last('error').msg, /already started/);
+});
+
+test('coop: the first teammate to beat a blind tells the others once', () => {
+  const { ps, ev } = coop(3);
+  ev(ps[0], { type: 'blind_end', slot: 1, won: true, hands: 2, best: 100 });
+  ev(ps[1], { type: 'blind_end', slot: 1, won: true, hands: 3, best: 50 });
+  assert.strictEqual(ps[0].all('team_blind_won').length, 0, 'not sent to the winner');
+  assert.strictEqual(ps[1].all('team_blind_won').length, 1);
+  assert.strictEqual(ps[2].all('team_blind_won').length, 1);
+  assert.strictEqual(ps[2].last('team_blind_won').slot, 1);
+  // Out of hands after the team already beat it: no team failure.
+  ev(ps[2], { type: 'out_of_hands', slot: 1 });
+  assert.strictEqual(ps[2].all('team_failed').length, 0);
+});
+
+test('the host can switch back to one seed before starting', () => {
+  const h = harness();
+  const a = h.client('A'), b = h.client('B');
+  a.send({ type: 'create', mode: 'duel', sameSeed: false });
+  assert.strictEqual(a.last('lobby').sameSeed, false);
+  a.send({ type: 'lobby_options', sameSeed: true });
+  b.send({ type: 'join', code: a.last('lobby').code });
+  a.send({ type: 'start' });
+  assert.strictEqual(a.last('start').seed, b.last('start').seed);
 });
 
 test('challenge lobbies pass the challenge to everyone at stake 1', () => {
@@ -456,8 +544,8 @@ test('TCP end-to-end: create, join, start, disconnect', async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
   const a = await tcpClient(port), b = await tcpClient(port);
-  a.sendj({ type: 'hello', name: 'Alice', protocol: 4 });
-  b.sendj({ type: 'hello', name: 'Bob', protocol: 4 });
+  a.sendj({ type: 'hello', name: 'Alice', protocol: 5 });
+  b.sendj({ type: 'hello', name: 'Bob', protocol: 5 });
   a.sendj({ type: 'create', mode: 'duel', deck: 'b_blue', stake: 2 });
   const lobby = await a.waitFor('lobby');
   b.sendj({ type: 'join', code: lobby.code });

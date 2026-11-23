@@ -10,7 +10,7 @@ UI.MODE_INFO = {
   duel = {
     title = 'DUEL', sub = '1 vs 1', colour = G.C.RED,
     lines = {
-      'Same seed, same deck, head to head.',
+      'Same deck and stake, head to head.',
       'Play at your own pace; rounds stay in sync.',
       'Each blind: +1 point for the best hand,',
       '+1 for beating it in the fewest hands.',
@@ -275,8 +275,15 @@ function UI.definition()
     nodes[1] = { n = G.UIT.R, config = { align = 'cm', padding = 0.06 }, nodes = {
       { n = G.UIT.C, config = { align = 'cm', padding = 0.04 }, nodes = { label('MULTIPLAYER', 0.5, G.C.GOLD) } },
       pill { label('LOBBY  ', 0.28, G.C.UI.TEXT_INACTIVE), label(tostring(l.code), 0.4) },
-      pill { label('SEED  ', 0.28, G.C.UI.TEXT_INACTIVE), label(tostring(l.seed), 0.4) },
+      pill { label('SEED  ', 0.28, G.C.UI.TEXT_INACTIVE),
+        label(l.sameSeed == false and 'PER PLAYER' or tostring(l.seed), 0.4) },
     } }
+    if tostring(l.hostId) == MP.my_id then
+      -- Host only: everyone on one seed (same jokers, shops, packs...) or each on their own.
+      local nodes1 = nodes[1].nodes
+      nodes1[#nodes1 + 1] = UIBox_button { label = { l.sameSeed == false and 'Use same seed' or 'Use different seeds' },
+        button = 'mp_toggle_seed', colour = G.C.BLUE, minw = 2.6, minh = 0.45, scale = 0.32, col = true }
+    end
 
     local players = { text_row('Players (' .. #(l.players or {}) .. '/' .. max .. ')', 0.45, G.C.GOLD) }
     for _, p in ipairs(l.players or {}) do
@@ -691,6 +698,11 @@ G.FUNCS.mp_leave = function()
   UI.refresh()
 end
 G.FUNCS.mp_start = function() UI.last_error = nil; MP.send { type = 'start' } end
+G.FUNCS.mp_toggle_seed = function()
+  if not MP.lobby then return end
+  UI.last_error = nil
+  MP.send { type = 'lobby_options', sameSeed = MP.lobby.sameSeed == false }
+end
 
 function UI.install_picker_hooks()
   -- Steamodded's paged run select: Play, double-click and Quick Start all end here.
@@ -923,6 +935,9 @@ local function result_notice(run)
     local opp_name = 'Opponent'
     for _, p in ipairs(run.players or {}) do if tostring(p.id) ~= MP.my_id then opp_name = tostring(p.name) end end
     n.points = { { 'You', mine }, { opp_name, theirs } }
+  elseif r.reason == 'endless_over' then
+    n.title, n.colour = 'ENDLESS RUN OVER', G.C.GOLD
+    n.lines[1] = { 'The team beat the final boss and made it to ante ' .. tostring(G.GAME and G.GAME.round_resets and G.GAME.round_resets.ante or '?'), G.C.UI.TEXT_LIGHT }
   else
     local won = r.result == 'won'
     n.title, n.colour = won and 'TEAM VICTORY!' or 'TEAM DEFEATED', won and G.C.GREEN or G.C.RED
@@ -993,6 +1008,21 @@ end
 
 local function current_notice(run, in_run, paused)
   local menu_open = G.OVERLAY_MENU and true or false
+  local r = run and run.result
+  if r and in_run and G.GAME and G.GAME.won and G.STATE ~= G.STATES.GAME_OVER then
+    -- This player beat the final boss and may play on in Endless mode. The result shows over
+    -- the win screen (or another menu) and goes away once they close it to keep playing.
+    if menu_open then
+      run.result_seen = true
+    elseif run.result_seen or r.endless then
+      if run.result_seen and r.endless then run.result = nil end -- Co-op: the team plays on
+      return nil
+    else
+      local n = result_notice(run)
+      n.top = true -- out of the way of the endless run, no button (the pause menu has one)
+      return n
+    end
+  end
   if run and run.result then
     local n = result_notice(run)
     -- With a menu open (the game over / win screen has its own Main Menu button) show a

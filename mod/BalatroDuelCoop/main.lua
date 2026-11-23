@@ -1,9 +1,9 @@
--- Balatro Duel & Co-op: Duel (1v1, same seed, points) and Co-op (2-4 players, shared score).
+-- Balatro Duel & Co-op: Duel (1v1, points) and Co-op (2-4 players, shared score).
 -- Requires Steamodded (which requires Lovely).
 
 MP = MP or {}
-MP.VERSION = '1.0.1'
-MP.PROTOCOL = 4 -- must match Relay.PROTOCOL_VERSION in src/relay.lua
+MP.VERSION = '1.0.2'
+MP.PROTOCOL = 5 -- must match Relay.PROTOCOL_VERSION in src/relay.lua
 MP.mod = SMODS.current_mod
 MP.config = MP.mod.config or {}
 

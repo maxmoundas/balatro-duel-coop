@@ -33,7 +33,7 @@
 
 local Relay = {}
 Relay.__index = Relay
-Relay.PROTOCOL_VERSION = 4
+Relay.PROTOCOL_VERSION = 5
 
 local MAX_PLAYERS = { duel = 2, coop = 4 }
 local SEED_CHARS = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789'
@@ -82,6 +82,8 @@ function Lobby.new(code, host, opts)
   self.stake = (stake and stake == math.floor(stake) and stake >= 1 and stake <= 64) and stake or 1
   local seed = type(opts.seed) == 'string' and opts.seed:upper() or nil
   self.seed = (seed and seed:match('^[A-Z1-9]+$') and #seed <= 8) and seed or rand_string(SEED_CHARS, 8)
+  -- Same seed for everyone (the default), or a different random seed for each player.
+  self.same_seed = opts.same_seed ~= false
   -- Challenge id (e.g. 'c_omelette_1'); a challenge brings its own deck, rules and stake.
   local ch = type(opts.challenge) == 'string' and opts.challenge or nil
   self.challenge = (ch and #ch <= 64 and ch:match('^[%w_%-]+$')) and ch or nil
@@ -116,7 +118,7 @@ end
 function Lobby:info()
   return {
     type = 'lobby', code = self.code, mode = self.mode, deck = self.deck, stake = self.stake,
-    seed = self.seed, challenge = self.challenge, started = self.started, hostId = self:host_id(), players = self:player_list(),
+    seed = self.seed, sameSeed = self.same_seed, challenge = self.challenge, started = self.started, hostId = self:host_id(), players = self:player_list(),
   }
 end
 
@@ -157,10 +159,21 @@ function Lobby:start(player)
   self.scored_slots = {}
   self.coop_slots = {}
   self.last_gate_status = self.json and self.json.encode({}) or '0' -- nobody waiting yet
-  self:broadcast({
-    type = 'start', mode = self.mode, seed = self.seed, deck = self.deck, stake = self.stake, challenge = self.challenge,
-    playerCount = #self.players, players = self:player_list(),
-  })
+  for _, p in ipairs(self.players) do
+    p:send({
+      type = 'start', mode = self.mode, deck = self.deck, stake = self.stake, challenge = self.challenge,
+      seed = self.same_seed and self.seed or rand_string(SEED_CHARS, 8), sameSeed = self.same_seed,
+      playerCount = #self.players, players = self:player_list(),
+    })
+  end
+end
+
+-- Lobby options the host can change before the game starts.
+function Lobby:set_options(player, msg)
+  if player.id ~= self:host_id() then fail('only the host can change the lobby options') end
+  if self.started then fail('already started') end
+  if msg.sameSeed ~= nil then self.same_seed = msg.sameSeed ~= false end
+  self:broadcast_lobby()
 end
 
 -- ---- in-game events --------------------------------------------------------
@@ -222,6 +235,7 @@ function Lobby:remove(player)
   else
     if #self.players == 0 then self.finished = true return end
     for s in pairs(self.coop_slots) do self:check_coop_failure(s) end
+    self:check_coop_win()
   end
   self:update_gates()
 end
@@ -297,7 +311,14 @@ function Lobby:on_blind_end(player, slot, result)
   else
     if result.skipped then g.skipping[slot] = true end
     local s = self:coop_slot(slot)
-    if result.won then s.won = true else self:check_coop_failure(slot) end
+    if result.won then
+      -- With different seeds, teammates can face different bosses and so different targets:
+      -- the first player to beat theirs beats the blind for the whole team.
+      if not s.won then self:broadcast({ type = 'team_blind_won', slot = slot, from = player.id, name = player.name }, player) end
+      s.won = true
+    else
+      self:check_coop_failure(slot)
+    end
   end
 end
 
@@ -461,12 +482,28 @@ function Lobby:on_run_end(player, status, slot)
   if self.mode == 'duel' then
     self:check_duel_outcome()
   elseif status == 'lost' then
-    self:finish({ result = 'lost', reason = 'team_failed' })
+    self:finish({ result = 'lost', reason = self.endless and 'endless_over' or 'team_failed' })
   else
-    local all_won = true
-    for _, p in ipairs(self.players) do if p.game.status ~= 'won' then all_won = false end end
-    if all_won then self:finish({ result = 'won', reason = 'final_boss_beaten' }) end
+    self:check_coop_win()
   end
+end
+
+-- Co-op: once every player still in the run has beaten the final boss, the team wins.
+-- The run carries on in Endless mode for whoever continues: everyone is back in play and
+-- the round gates keep the team together (a player who leaves from the win screen drops out).
+-- The game only ends when the team loses an endless blind.
+function Lobby:check_coop_win()
+  if self.finished or self.endless or self.mode ~= 'coop' or #self.players == 0 then return end
+  for _, p in ipairs(self.players) do
+    if not p.game or p.game.status ~= 'won' then return end
+  end
+  self.endless = true
+  for _, p in ipairs(self.players) do
+    p.game.status = 'alive'
+    p.game.end_slot = nil
+  end
+  self:broadcast({ type = 'game_over', mode = self.mode, result = 'won', reason = 'final_boss_beaten',
+    endless = true, points = self:points_table() })
 end
 
 function Lobby:finish(outcome)
@@ -543,7 +580,8 @@ function Relay:dispatch(player, msg)
     self:leave_lobby(player)
     local code = self:new_code()
     local lobby = Lobby.new(code, player, {
-      mode = msg.mode, deck = msg.deck, stake = msg.stake, seed = msg.seed, challenge = msg.challenge, min_players = self.min_players, json = self.json,
+      mode = msg.mode, deck = msg.deck, stake = msg.stake, seed = msg.seed, same_seed = msg.sameSeed, challenge = msg.challenge,
+      min_players = self.min_players, json = self.json,
     })
     self.lobbies[code] = lobby
     self.log('lobby ' .. code .. ' created (' .. lobby.mode .. ') by ' .. player.name)
@@ -564,6 +602,10 @@ function Relay:dispatch(player, msg)
     player.lobby:start(player)
     self.log('lobby ' .. player.lobby.code .. ' started with ' .. #player.lobby.players .. ' players')
     return
+  end
+  if t == 'lobby_options' then
+    if not player.lobby then fail('not in a lobby') end
+    return player.lobby:set_options(player, msg)
   end
   if t == 'invite' then
     -- Push an in-game invite to a Steam friend who is connected to this server.
